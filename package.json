@@ -1,0 +1,39 @@
+{
+  "name": "minimalist-async-di",
+  "version": "1.0.0",
+  "description": "Minimalist asynchronous IoC/dependency injection container",
+  "main": "src/container.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha test/container-test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/insightfuls/minimalist-async-di.git"
+  },
+  "keywords": [
+    "async",
+    "ioc",
+    "inversion of control",
+    "inversion",
+    "control",
+    "di",
+    "dependency injection",
+    "dependency",
+    "injection",
+    "bean",
+    "container"
+  ],
+  "author": "Ben Schmidt",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/insightfuls/minimalist-async-di/issues"
+  },
+  "homepage": "https://github.com/insightfuls/minimalist-async-di#readme",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0"
+  }
+}
