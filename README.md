@@ -7,6 +7,7 @@ Minimalist asynchronous IoC/dependency injection container.
  * Register pre-constructed beans (e.g. to provide configuration values).
  * Optionally call an asynchronous init() method (returning a Promise) immediately after construction or obtaining a bean from a factory.
  * Getting beans is asynchronous (returns a Promise).
+ * Use dot notation to get (or specify as a dependency) a property of a bean instead of the bean itself.
  * All beans are singletons.
    * Use a bean which is itself a factory if you need to generate new instances repeatedly.
    * Use a bean which is itself a factory producing containers if you need to repeatedly create scopes with managed beans.
@@ -46,20 +47,25 @@ async function milk(creamTopMilk) {
   return await creamTopMilk.getMilk();
 }
 
-function createSugar() {
-  return preBoughtSugar;
+function createFlour(store) {
+  return sift(store.flour);
 }
 
-container = new Container();
+const store = {
+  sugar: {},
+  flour: {}
+};
+
+const container = new Container();
 
 container.initializeWith("init");
 
-container.registerClass("pudding", Pudding, "butter", "sugar", "milk", "flour");
+container.registerClass("pudding", Pudding, "butter", "store.sugar", "milk", "flour");
 container.registerClass("creamTopMilk", CreamTopMilk);
-container.registerFactory("butter" createButter, "creamTopMilk");
+container.registerFactory("butter", createButter, "creamTopMilk");
 container.registerFactory("milk", milk, "creamTopMilk");
-container.registerFactory("sugar", createSugar);
-container.registerBean("flour", preBoughtFlour);
+container.registerFactory("flour", createFlour, "store");
+container.registerBean("store", store);
 
 container
   .get("pudding")

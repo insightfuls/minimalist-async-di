@@ -15,9 +15,9 @@ describe('Container', function () {
 
 	it('rejects when no bean', async function () {
 		await container.get("foo").then(
-            () => { throw new Error("promise resolved but expecting rejection"); },
+			() => { throw new Error("promise resolved but expecting rejection"); },
 			() => { /* convert rejection to resolution */ }
-        );
+		);
 	});
 
 	it('registers pre-constructed bean', async function () {
@@ -36,6 +36,24 @@ describe('Container', function () {
 		container.registerFactory("foo", async () => new ContainerTestBean());
 
 		expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
+	});
+
+	it('gets property of bean', async function () {
+		container.registerBean("foo", { bar: "baz" });
+
+		expect(await container.get("foo.bar")).to.equal("baz");
+	});
+
+	it('gets nested property of bean', async function () {
+		container.registerBean("foo", { bar: { baz: "qux" }});
+
+		expect(await container.get("foo.bar.baz")).to.equal("qux");
+	});
+
+	it('gets property of bean with dot in name', async function () {
+		container.registerBean("foo.bar", { baz: "qux" });
+
+		expect(await container.get("foo.bar.baz")).to.equal("qux");
 	});
 
 	it('provides argument to factory function', async function () {

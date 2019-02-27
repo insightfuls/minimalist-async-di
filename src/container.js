@@ -41,6 +41,18 @@ exports.Container = class {
 		}
 
 		if (!this._registrations.has(name)) {
+			const lastDot = name.lastIndexOf(".");
+
+			if (lastDot !== -1) {
+				try {
+					const bean = await this._get(ancestors, name.slice(0, lastDot));
+
+					return bean[name.slice(lastDot + 1)];
+				} catch (e) {
+					/* fall through */
+				}
+			}
+
 			throw new Error(`no bean registered with name '${name}'`);
 		}
 
