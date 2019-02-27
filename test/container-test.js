@@ -1,6 +1,6 @@
 const expect = require("chai").expect;
 
-const { Container } = require("../src/container");
+const { Container, BeanError } = require("../src/container");
 
 describe('Container', function () {
 	/* Instantiated here just to help JetBrains figure out the type. */
@@ -16,7 +16,12 @@ describe('Container', function () {
 	it('rejects when no bean', async function () {
 		await container.get("foo").then(
 			() => { throw new Error("promise resolved but expecting rejection"); },
-			() => { /* convert rejection to resolution */ }
+			(error) => {
+				expect(error).to.be.an.instanceOf(BeanError);
+
+				/* Also check that a BeanError is an Error. */
+				expect(error).to.be.an.instanceOf(Error);
+			}
 		);
 	});
 
@@ -54,6 +59,15 @@ describe('Container', function () {
 		container.registerBean("foo.bar", { baz: "qux" });
 
 		expect(await container.get("foo.bar.baz")).to.equal("qux");
+	});
+
+	it('does not report instantiation error as no bean', async function () {
+		container.registerFactory("foo", () => { throw new Error("instantiation failure"); });
+
+		await container.get("foo.bar").then(
+			() => { throw new Error("promise resolved but expecting rejection"); },
+			(error) => { expect(error).not.to.be.an.instanceOf(BeanError); }
+		);
 	});
 
 	it('provides argument to factory function', async function () {
@@ -135,7 +149,7 @@ describe('Container', function () {
 
 		await container.get("foo").then(
 			() => { throw new Error("promise resolved but expecting rejection"); },
-			() => { /* convert rejection to resolution */ }
+			(error) => { expect(error).to.be.an.instanceOf(BeanError); }
 		);
 	});
 

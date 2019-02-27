@@ -29,7 +29,7 @@ exports.Container = class {
 
 	async _get(ancestors, name) {
 		if (ancestors.has(name)) {
-			throw new Error(`dependency '${name}' creates a cycle`);
+			throw new BeanError(`dependency '${name}' creates a cycle`);
 		}
 
 		if (this._beans.has(name)) {
@@ -49,11 +49,15 @@ exports.Container = class {
 
 					return bean[name.slice(lastDot + 1)];
 				} catch (e) {
+					if (!(e instanceof BeanError)) {
+						throw e;
+					}
+
 					/* fall through */
 				}
 			}
 
-			throw new Error(`no bean registered with name '${name}'`);
+			throw new BeanError(`no bean registered with name '${name}'`);
 		}
 
 		const promise = this._instantiate(ancestors, name);
@@ -92,8 +96,21 @@ exports.Container = class {
 
 			return bean;
 		} catch (e) {
+			if (e instanceof BeanError) {
+				throw new BeanError(`while instantiating bean '${name}':\n${e.message}`);
+			}
+
 			throw new Error(`while instantiating bean '${name}':\n${e.message}`);
 		}
 	}
 
 };
+
+function BeanError(message) {
+	this.message = message;
+	this.stack = (new Error()).stack;
+};
+BeanError.prototype = Object.create(Error.prototype);
+BeanError.prototype.constructor = BeanError;
+
+exports.BeanError = BeanError;
