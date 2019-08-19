@@ -17,6 +17,19 @@ Minimalist asynchronous IoC/dependency injection container.
 ```
 const { Container } = require("minimalist-async-di");
 
+const container = new Container();
+
+/*
+ * Set the name of the init() method to use.
+ */
+container.initializeWith("init");
+
+/*
+ * Register a Pudding class to allow us to cook a pudding. The dependencies will be defined
+ * later. This is a vanilla ES6 class. Note that the 'sugar' dependency is injected using
+ * dot notation.
+ */
+
 class Pudding {
   constructor(butter, sugar, milk, flour) {
     Object.assign(this, { butter, sugar, milk, flour });
@@ -28,6 +41,12 @@ class Pudding {
     return `mixture of ${this.butter}, ${this.sugar}, ${this.milk}, and ${this.flour}`
   }
 }
+
+container.registerClass("pudding", Pudding, "butter", "store.sugar", "milk", "flour");
+
+/*
+ * Register cream-top-milk which we can separate. This has an asynchronous init() method.
+ */
 
 class CreamTopMilk {
   async init() {
@@ -57,6 +76,12 @@ async function homogenize(ingredient) {
   return `homogenized ${ingredient}`;
 }
 
+container.registerClass("creamTopMilk", CreamTopMilk);
+
+/*
+ * Register asynchronous factory functions.
+ */
+
 async function createButter(creamTopMilk) {
   const cream = await creamTopMilk.getCream();
   return `butter churned from ${cream}`;
@@ -66,6 +91,13 @@ async function milk(creamTopMilk) {
   return await creamTopMilk.getMilk();
 }
 
+container.registerFactory("butter", createButter, "creamTopMilk");
+container.registerFactory("milk", milk, "creamTopMilk");
+
+/*
+ * Register a synchronous factory function.
+ */
+
 function createFlour(store) {
   return sift(store.flour);
 }
@@ -74,21 +106,22 @@ function sift(ingredient) {
   return `sifted ${ingredient}`;
 }
 
+container.registerFactory("flour", createFlour, "store");
+
+/*
+ * Register a pre-constructed bean.
+ */
+
 const store = {
   sugar: "sugar",
   flour: "flour"
 };
 
-const container = new Container();
-
-container.initializeWith("init");
-
-container.registerClass("pudding", Pudding, "butter", "store.sugar", "milk", "flour");
-container.registerClass("creamTopMilk", CreamTopMilk);
-container.registerFactory("butter", createButter, "creamTopMilk");
-container.registerFactory("milk", milk, "creamTopMilk");
-container.registerFactory("flour", createFlour, "store");
 container.registerBean("store", store);
+
+/*
+ * Get the pudding from the container and cook it!
+ */
 
 container
   .get("pudding")
