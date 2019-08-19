@@ -19,13 +19,21 @@ const { Container } = require("minimalist-async-di");
 
 class Pudding {
   constructor(butter, sugar, milk, flour) {
+    Object.assign(this, { butter, sugar, milk, flour });
   }
   cook() {
+    return `bake ${this.getMixture()}`;
+  }
+  getMixture() {
+    return `mixture of ${this.butter}, ${this.sugar}, ${this.milk}, and ${this.flour}`
   }
 }
 
 class CreamTopMilk {
   async init() {
+    this.state = "cream-top milk";
+    this.cream = "";
+    this.milkWithoutCream = "";
     await this.pasteurize();
   }
   async getCream() {
@@ -34,13 +42,24 @@ class CreamTopMilk {
   }
   async getMilk() {
     await this.separate();
-    return await this.homogenize(this.milkWithoutCream);
+    return await homogenize(this.milkWithoutCream);
   }
+  async pasteurize() {
+    this.state = `pasteurized ${this.state}`;
+  }
+  async separate() {
+    this.cream = `cream separated from ${this.state}`;
+    this.milkWithoutCream = `milk separated from ${this.state}`;
+  }
+}
+
+async function homogenize(ingredient) {
+  return `homogenized ${ingredient}`;
 }
 
 async function createButter(creamTopMilk) {
   const cream = await creamTopMilk.getCream();
-  return await cream.churn();
+  return `butter churned from ${cream}`;
 }
 
 async function milk(creamTopMilk) {
@@ -51,9 +70,13 @@ function createFlour(store) {
   return sift(store.flour);
 }
 
+function sift(ingredient) {
+  return `sifted ${ingredient}`;
+}
+
 const store = {
-  sugar: {},
-  flour: {}
+  sugar: "sugar",
+  flour: "flour"
 };
 
 const container = new Container();
@@ -69,5 +92,6 @@ container.registerBean("store", store);
 
 container
   .get("pudding")
-  .then((pudding) => pudding.cook());
+  .then((pudding) => pudding.cook())
+  .then(console.log);
 ```
