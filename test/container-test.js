@@ -8,7 +8,6 @@ describe('Container', function () {
 
 	beforeEach(function () {
 		ContainerTestBean.numberOfBeans = 0;
-		ContainerTestBean.whenInitCalled = async function() {};
 
 		container = new Container();
 	});
@@ -90,31 +89,6 @@ describe('Container', function () {
 		expect((await container.get("foo")).args).to.deep.equal(["baz"]);
 	});
 
-	it('calls init when configured', async function () {
-		container.initializeWith("init");
-		container.registerClass("foo", ContainerTestBean);
-
-		let init = false;
-
-		ContainerTestBean.whenInitCalled = async () => { init = true; };
-
-		await container.get("foo");
-
-		expect(init).to.be.true;
-	});
-
-	it('does not call init when not configured', async function () {
-		container.registerClass("foo", ContainerTestBean);
-
-		let init = false;
-
-		ContainerTestBean.whenInitCalled = async () => { init = true; };
-
-		await container.get("foo");
-
-		expect(init).to.be.false;
-	});
-
 	it('creates beans once only', async function () {
 		container.registerClass("foo", ContainerTestBean);
 
@@ -125,19 +99,9 @@ describe('Container', function () {
 	})
 
 	it('creates beans once only while pending', async function () {
-		container.initializeWith("init");
 		container.registerClass("foo", ContainerTestBean);
 
-		await new Promise(resolve => {
-			const getBeanWhilePending = () => {
-				container.get("foo").then(resolve);
-			};
-			ContainerTestBean.whenInitCalled = async () => {
-				getBeanWhilePending();
-			};
-
-			container.get("foo");
-		});
+		await container.get("foo");
 
 		expect(ContainerTestBean.numberOfBeans).to.equal(1);
 	})
@@ -160,9 +124,5 @@ class ContainerTestBean {
 		this.args = args;
 		ContainerTestBean.numberOfBeans++;
 	}
-	async init() {
-		await ContainerTestBean.whenInitCalled();
-	}
 }
 ContainerTestBean.beans = 0;
-ContainerTestBean.whenInitCalled = async function() {};

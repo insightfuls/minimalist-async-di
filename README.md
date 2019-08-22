@@ -5,7 +5,6 @@ Minimalist asynchronous IoC/dependency injection container.
  * Register constructors (classes) along with names of dependencies to provide as arguments.
  * Register synchronous or asynchronous (returning a Promise) factory functions along with names of dependencies to provide as arguments.
  * Register pre-constructed beans (e.g. to provide configuration values).
- * Optionally call an asynchronous init() method (returning a Promise) immediately after construction or obtaining a bean from a factory.
  * Getting beans is asynchronous (returns a Promise).
  * Use dot notation to get (or specify as a dependency) a property of a bean instead of the bean itself.
  * All beans are singletons.
@@ -18,11 +17,6 @@ Minimalist asynchronous IoC/dependency injection container.
 const { Container } = require("minimalist-async-di");
 
 const container = new Container();
-
-/*
- * Set the name of the init() method to use.
- */
-container.initializeWith("init");
 
 /*
  * Register a Pudding class to allow us to cook a pudding. The dependencies will be defined
@@ -45,15 +39,14 @@ class Pudding {
 container.registerClass("pudding", Pudding, "butter", "store.sugar", "milk", "flour");
 
 /*
- * Register cream-top-milk which we can separate. This has an asynchronous init() method.
+ * Register cream-top-milk which we can separate.
  */
 
 class CreamTopMilk {
-  async init() {
+  constructor() {
     this.state = "cream-top milk";
     this.cream = "";
     this.milkWithoutCream = "";
-    await this.pasteurize();
   }
   async getCream() {
     await this.separate();
@@ -61,22 +54,24 @@ class CreamTopMilk {
   }
   async getMilk() {
     await this.separate();
-    return await homogenize(this.milkWithoutCream);
+    return this.milkWithoutCream;
   }
   async pasteurize() {
     this.state = `pasteurized ${this.state}`;
+    return this;
   }
   async separate() {
     this.cream = `cream separated from ${this.state}`;
     this.milkWithoutCream = `milk separated from ${this.state}`;
+    return this;
   }
 }
 
-async function homogenize(ingredient) {
-  return `homogenized ${ingredient}`;
+async function createPasteurizedCreamTopMilk() {
+	return await (new CreamTopMilk()).pasteurize();
 }
 
-container.registerClass("creamTopMilk", CreamTopMilk);
+container.registerClass("creamTopMilk", createPasteurizedCreamTopMilk);
 
 /*
  * Register asynchronous factory functions.
@@ -128,3 +123,12 @@ container
   .then((pudding) => pudding.cook())
   .then(console.log);
 ```
+
+## Version history
+
+Major changes:
+
+ * `v2`: Removed misguided `initializeWith()/init()` feature. Factory functions are equally effective and don't couple beans to the container.
+ * `v1`: Initial version.
+
+For details on minor/patch changes, consult the commit history.

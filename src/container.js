@@ -4,7 +4,6 @@ exports.Container = class {
 		this._registrations = new Map();
 		this._pending = new Map();
 		this._beans = new Map();
-		this._init = null;
 	}
 
 	registerClass(name, Constructor, ...dependencies) {
@@ -17,10 +16,6 @@ exports.Container = class {
 
 	registerBean(name, bean) {
 		this._beans.set(name, bean);
-	}
-
-	initializeWith(method) {
-		this._init = method;
 	}
 
 	async get(name) {
@@ -86,12 +81,6 @@ exports.Container = class {
 			}
 			if (registration.factory) {
 				bean = await registration.factory(...dependencies);
-			}
-
-			if (this._init) {
-				if (typeof (bean[this._init]) === "function") {
-					await bean[this._init]();
-				}
 			}
 
 			return bean;
