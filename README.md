@@ -71,7 +71,7 @@ async function createPasteurizedCreamTopMilk() {
 	return await (new CreamTopMilk()).pasteurize();
 }
 
-container.registerClass("creamTopMilk", createPasteurizedCreamTopMilk);
+container.registerFactory("creamTopMilk", createPasteurizedCreamTopMilk);
 
 /*
  * Register asynchronous factory functions.
