@@ -2,6 +2,21 @@
 
 Minimalist asynchronous IoC/dependency injection container.
 
+* [Tutorial](#tutorial)
+	* [Import](#import)
+	* [Create a container](#create-a-container)
+	* [Getting beans](#getting-beans)
+	* [Registering pre-created beans](#registering-pre-created-beans)
+	* [Registering constructors/classes](#registering-constructors/classes)
+	* [Registering factory functions](#registering-factory-functions)
+	* [Getting beans using dot notation](#getting-beans-using-dot-notation)
+	* [Using beans as constructors or factories](#using-beans-as-constructors-or-factories)
+	* [All beans are singletons](#all-beans-are-singletons)
+* [API](#api)
+	* [Container](#container)
+	* [Creators](#creators)
+* [Version history](#version-history)
+
 ## Tutorial
 
 ### Import
