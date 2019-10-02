@@ -247,10 +247,12 @@ Error: already cooked
 
 * `constructor(Ctor)`
 	* Creator which constructs the bean by calling `new Ctor(dependency1, ...)`
+	* If `Ctor` is a string, the bean with that name will be used as the constructor
 
 * `factory(ftory)`
 	* Creator which constructs the bean by calling `await ftory(dependency1, ...)`
 	* This works for both synchronous and asynchronous factory functions
+	* If `ftory` is a string, the bean with that name will be used as the factory
 
 ## Version history
 
