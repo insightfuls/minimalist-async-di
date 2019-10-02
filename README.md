@@ -2,47 +2,119 @@
 
 Minimalist asynchronous IoC/dependency injection container.
 
-* Register constructors (classes) along with names of dependencies to provide as arguments.
-* Register synchronous or asynchronous (returning a Promise) factory functions along with names of dependencies to provide as arguments.
-* Register pre-constructed beans (e.g. to provide configuration values).
-* Getting beans is asynchronous (returns a Promise).
-* Use dot notation to get (or specify as a dependency) a property of a bean instead of the bean itself.
-* All beans are singletons.
-	* Use a bean which is itself a factory if you need to generate new instances repeatedly.
-	* Use a bean which is itself a factory producing containers if you need to repeatedly create scopes with managed beans.
+## Tutorial
 
-## Example
+### Import
+
+Here's everything you might need.
 
 ```
-const { Container, constructor, factory, value } = require("minimalist-async-di");
+const { Container, value, constructor, factory } = require("minimalist-async-di");
+```
 
+### Create a container
+
+Creating a container is super simple.
+
+```
 const container = new Container();
+```
 
-/*
- * Register a Pudding class to allow us to cook a pudding. The dependencies will be defined
- * later. This is a vanilla ES6 class. Note that the 'sugar' dependency is injected using
- * dot notation.
- */
+### Getting beans
 
+Getting beans is always asynchronous (returns a Promise). Suppose we have registered a bean called "pudding". We can retrieve it and cook it as follows.
+
+```
+container
+.get("pudding")
+.then((pudding) => pudding.cook());
+```
+
+We will actually register this bean in a moment. (In reality, of course, it needs to be registered before it is retrieved.)
+
+Because beans are always retrieved asynchronously, they, and their dependencies, can always be instantiated asynchronously, too. This minimises the impact of "async creep", a phenomenon where you have a lot of synchronous code, and then discover that deep within it you need an asynchronous operation, so you have to propagate the asynchrony through the codebase, which is a large refactoring effort. Such refactoring is now limited to within a single bean.
+
+### Registering pre-created beans
+
+Sometimes you just want to put an existing value into the container as a bean. Use the `register` method with the `value` creator for this.
+
+Here we have a local store, which might be exported from some module, and contains some of the ingredients we need.
+
+```
+const localStore = {
+	sugar: "sugar",
+	flour: "flour"
+};
+```
+
+We just register it as is, in a bean named "store".
+
+```
+container.register("store", value(localStore));
+```
+
+`registerValue` and `registerBean` are syntax sugar for `register` with `value`, so either of these works too if you prefer:
+
+* `container.registerValue("store", localStore);`
+* `container.registerBean("store", localStore);`
+
+### Registering constructors/classes
+
+We can register constructor functions (or ES6 classes) using the `register` method with the `constructor` creator.
+
+Here is a `Pudding` class which might be exported from some module; it requires various ingredients to be supplied to its constructor:
+
+```
 class Pudding {
 	constructor(butter, sugar, milk, flour) {
 		Object.assign(this, { butter, sugar, milk, flour });
+		this.cooked = false;
 	}
 	cook() {
-		return `bake ${this.getMixture()}`;
+		if (this.cooked) throw new Error("already cooked");
+		this.cooked = true;
+		return `baked ${this.getMixture()}`;
 	}
 	getMixture() {
 		return `mixture of ${this.butter}, ${this.sugar}, ${this.milk}, and ${this.flour}`
 	}
 }
+```
 
-container.register("pudding", constructor(Pudding), "butter", "store.sugar", "milk", "flour");
-// or container.registerClass("pudding", Pudding, "butter", "store.sugar", "milk", "flour");
+Here we register a bean named "pudding", which is created using the `Pudding` constructor, and has a number of other named beans as dependencies. The dependencies will be registered later (which is fine to do, even in real code).
 
-/*
- * Register cream-top-milk which we can separate.
- */
+```
+container.register("pudding", constructor(Pudding), "butter", "sugar", "milk", "flour");
+```
 
+`registerClass` and `registerConstructor` are syntax sugar for `register` with `constructor`, so we could have used either of these if we preferred:
+
+* `container.registerConstructor("pudding", Pudding, "butter", "sugar", "milk", "flour");`
+* `container.registerClass("pudding", Pudding, "butter", "sugar", "milk", "flour");`
+
+### Registering factory functions
+
+Factory functions, which can be either synchronous or asynchronous (returning a promise or using the `async`/`await` syntax sugar), are registered using the `register` method with the `factory` creator.
+
+Here is a synchronous one:
+
+```
+function createFlour(unsiftedFlour) {
+	return sift(unsiftedFlour);
+}
+
+function sift(ingredient) {
+	return `sifted ${ingredient}`;
+}
+```
+
+```
+container.register("flour", factory(createFlour), "store.flour");
+```
+
+And some asynchronous ones:
+
+```
 class CreamTopMilk {
 	constructor() {
 		this.state = "cream-top milk";
@@ -68,64 +140,112 @@ class CreamTopMilk {
 	}
 }
 
-async function createPasteurizedCreamTopMilk() {
-	return await (new CreamTopMilk()).pasteurize();
+function createPasteurizedCreamTopMilk() {
+	// this returns a promise because `pasteurize()` is async
+	return (new CreamTopMilk()).pasteurize();
 }
 
-container.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
-// or container.registerFactory("creamTopMilk", createPasteurizedCreamTopMilk);
-
-/*
- * Register asynchronous factory functions.
- */
-
-async function createButter(creamTopMilk) {
-	const cream = await creamTopMilk.getCream();
-	return `butter churned from ${cream}`;
+function createButter(creamTopMilk) {
+	return creamTopMilk.getCream()
+	.then(cream => `butter churned from ${cream}`);
 }
 
-async function milk(creamTopMilk) {
+async function createMilk(creamTopMilk) {
 	return await creamTopMilk.getMilk();
 }
+```
 
+```
+container.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
 container.register("butter", factory(createButter), "creamTopMilk");
-container.register("milk", factory(milk), "creamTopMilk");
+container.register("milk", factory(createMilk), "creamTopMilk");
+```
 
-/*
- * Register a synchronous factory function.
- */
+`registerFactory` is syntax sugar for `register` with `factory`, so we could have used this if we preferred:
 
-function createFlour(store) {
-	return sift(store.flour);
-}
+```
+container.registerFactory("creamTopMilk", createPasteurizedCreamTopMilk);
+container.registerFactory("butter", createButter, "creamTopMilk");
+container.registerFactory("milk", createMilk, "creamTopMilk");
+```
 
-function sift(ingredient) {
-	return `sifted ${ingredient}`;
-}
+### Getting beans using dot notation
 
-container.register("flour", factory(createFlour), "store");
+You can get properties of beans, or specify them as dependencies, using dot notation. If there is no bean which actually contains the dot in its name, the container will get the property on the "parent bean".
 
-/*
- * Register a pre-constructed bean.
- */
+This registers a `sugar` bean which is created using the `sift` function ()defined earlier) as a factory. It receives a dependency which is the `sugar` property from the `store` bean.
 
-const store = {
-	sugar: "sugar",
-	flour: "flour"
-};
+```
+container.register("sugar", factory(sift), "store.sugar");
+```
 
-container.register("store", value(store));
-// or container.registerBean("store", store);
+### All beans are singletons
 
-/*
- * Get the pudding from the container and cook it!
- */
+All beans are singletons.
 
+If you get the pudding a second time, you will get the one you prepared earlier, and be told that it's already cooked.
+
+```
 container
 .get("pudding")
 .then((pudding) => pudding.cook())
-.then(console.log);
+.then(console.log, console.error)
+.then(() => container.get("pudding"))
+.then((pudding) => pudding.cook())
+.then(console.log, console.error);
 ```
+
+```
+baked mixture of butter churned from cream separated from pasteurized cream-top milk, sifted sugar, milk separated from pasteurized cream-top milk, and sifted flour
+Error: already cooked
+```
+
+* If you need to generate new instances repeatedly, use a bean which is itself a factory.
+
+* If you need to repeatedly create scopes with managed beans, use a bean which is a factory which produces containers.
+
+## API
+
+### Container
+
+* `new Container()`
+	* creates a container
+
+* `container.register(name, creator, dependency1, ...)`
+	* registers a bean
+	* the bean is named `name`
+	* the `creator` (see Creators below) specifies how to create the bean
+	* the dependencies are names
+
+* `container.registerValue(name, val)`
+	* syntax sugar for `container.register(name, value(val))`
+
+* `container.registerBean(name, val)`
+	* syntax sugar for `container.register(name, value(val))`
+
+* `container.registerConstructor(name, Ctor, dependency1, ...)`
+	* syntax sugar for `container.register(name, constructor(Ctor), dependency1, ...)`
+
+* `container.registerClass(name, Ctor, dependency1, ...)`
+	* syntax sugar for `container.register(name, constructor(Ctor), dependency1, ...)`
+
+* `container.registerFactory(name, ftory, dependency1, ...)`
+	* syntax sugar for `container.register(name, factory(ftory), dependency1, ...)`
+
+* `container.get(name)`
+	* gets a bean asynchronously (returns a promise to the bean)
+
+### Creators
+
+* `value(val)`
+	* Creator which uses the value `val` itself as the bean
+
+* `constructor(Ctor)`
+	* Creator which constructs the bean by calling `new Ctor(dependency1, ...)`
+
+* `factory(ftory)`
+	* Creator which constructs the bean by calling `await ftory(dependency1, ...)`
+	* This works for both synchronous and asynchronous factory functions
 
 ## Version history
 

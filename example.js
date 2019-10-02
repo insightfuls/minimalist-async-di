@@ -1,31 +1,36 @@
-const { Container, constructor, factory, value } = require(".");
-
-const container = new Container();
+const { Container, value, constructor, factory } = require(".");
 
 /*
- * Register a Pudding class to allow us to cook a pudding. The dependencies will be defined
- * later. This is a vanilla ES6 class. Note that the 'sugar' dependency is injected using
- * dot notation.
+ * Components, which would ordinarily be exported from other modules.
  */
+
+const localStore = {
+	sugar: "sugar",
+	flour: "flour"
+};
 
 class Pudding {
 	constructor(butter, sugar, milk, flour) {
 		Object.assign(this, { butter, sugar, milk, flour });
+		this.cooked = false;
 	}
 	cook() {
-		return `bake ${this.getMixture()}`;
+		if (this.cooked) throw new Error("already cooked");
+		this.cooked = true;
+		return `baked ${this.getMixture()}`;
 	}
 	getMixture() {
 		return `mixture of ${this.butter}, ${this.sugar}, ${this.milk}, and ${this.flour}`
 	}
 }
 
-container.register("pudding", constructor(Pudding), "butter", "store.sugar", "milk", "flour");
-// or container.registerClass("pudding", Pudding, "butter", "store.sugar", "milk", "flour");
+function createFlour(unsiftedFlour) {
+	return sift(unsiftedFlour);
+}
 
-/*
- * Register cream-top-milk which we can separate.
- */
+function sift(ingredient) {
+	return `sifted ${ingredient}`;
+}
 
 class CreamTopMilk {
 	constructor() {
@@ -52,61 +57,38 @@ class CreamTopMilk {
 	}
 }
 
-async function createPasteurizedCreamTopMilk() {
-	return await (new CreamTopMilk()).pasteurize();
+function createPasteurizedCreamTopMilk() {
+	// this returns a promise because `pasteurize()` is async
+	return (new CreamTopMilk()).pasteurize();
 }
 
-container.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
-// or container.registerFactory("creamTopMilk", createPasteurizedCreamTopMilk);
-
-/*
- * Register asynchronous factory functions.
- */
-
-async function createButter(creamTopMilk) {
-	const cream = await creamTopMilk.getCream();
-	return `butter churned from ${cream}`;
+function createButter(creamTopMilk) {
+	return creamTopMilk.getCream()
+	.then(cream => `butter churned from ${cream}`);
 }
 
-async function milk(creamTopMilk) {
+async function createMilk(creamTopMilk) {
 	return await creamTopMilk.getMilk();
 }
 
+/*
+ * The container.
+ */
+
+const container = new Container();
+
+container.register("store", value(localStore));
+container.register("pudding", constructor(Pudding), "butter", "sugar", "milk", "flour");
+container.register("flour", factory(createFlour), "store.flour");
+container.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
 container.register("butter", factory(createButter), "creamTopMilk");
-container.register("milk", factory(milk), "creamTopMilk");
-
-/*
- * Register a synchronous factory function.
- */
-
-function createFlour(store) {
-	return sift(store.flour);
-}
-
-function sift(ingredient) {
-	return `sifted ${ingredient}`;
-}
-
-container.register("flour", factory(createFlour), "store");
-
-/*
- * Register a pre-constructed bean.
- */
-
-const store = {
-	sugar: "sugar",
-	flour: "flour"
-};
-
-container.register("store", value(store));
-// or container.registerBean("store", store);
-
-/*
- * Get the pudding from the container and cook it!
- */
+container.register("milk", factory(createMilk), "creamTopMilk");
+container.register("sugar", factory(sift), "store.sugar");
 
 container
 .get("pudding")
 .then((pudding) => pudding.cook())
-.then(console.log);
-
+.then(console.log, console.error)
+.then(() => container.get("pudding"))
+.then((pudding) => pudding.cook())
+.then(console.log, console.error);
