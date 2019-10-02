@@ -27,6 +27,12 @@ describe('Container', function () {
 			expect(await container.get("foo")).to.equal("bar");
 		});
 
+		it('registers bean class', async function () {
+			container.register("foo", constructor(ContainerTestBean));
+
+			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
+		});
+
 		it('registers synchronous factory function', async function () {
 			container.register("foo", factory(() => new ContainerTestBean()));
 
@@ -35,12 +41,6 @@ describe('Container', function () {
 
 		it('registers asynchronous factory function', async function () {
 			container.register("foo", factory(async () => new ContainerTestBean()));
-
-			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
-		});
-
-		it('registers bean class', async function () {
-			container.register("foo", constructor(ContainerTestBean));
 
 			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
 		});
@@ -61,8 +61,8 @@ describe('Container', function () {
 			expect(await container.get("foo")).to.equal("bar");
 		});
 
-		it('registers factory function with registerFactory', async function () {
-			container.registerFactory("foo", () => new ContainerTestBean());
+		it('registers bean class with registerConstructor', async function () {
+			container.registerConstructor("foo", ContainerTestBean);
 
 			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
 		});
@@ -73,8 +73,8 @@ describe('Container', function () {
 			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
 		});
 
-		it('registers bean class with registerConstructor', async function () {
-			container.registerConstructor("foo", ContainerTestBean);
+		it('registers factory function with registerFactory', async function () {
+			container.registerFactory("foo", () => new ContainerTestBean());
 
 			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
 		});
@@ -126,15 +126,15 @@ describe('Container', function () {
 
 	describe('dependency injection', function () {
 
-		it('provides argument to factory function', async function () {
-			container.register("foo", factory((arg) => new ContainerTestBean(arg)), "bar");
+		it('provides argument to constructor', async function () {
+			container.register("foo", constructor(ContainerTestBean), "bar");
 			container.register("bar", value("baz"));
 
 			expect((await container.get("foo")).args).to.deep.equal(["baz"]);
 		});
 
-		it('provides argument to constructor', async function () {
-			container.register("foo", constructor(ContainerTestBean), "bar");
+		it('provides argument to factory function', async function () {
+			container.register("foo", factory((arg) => new ContainerTestBean(arg)), "bar");
 			container.register("bar", value("baz"));
 
 			expect((await container.get("foo")).args).to.deep.equal(["baz"]);
