@@ -1,4 +1,4 @@
-exports.Container = class {
+exports.Container = class Container {
 
 	constructor() {
 		this._registrations = new Map();
@@ -6,16 +6,35 @@ exports.Container = class {
 		this._beans = new Map();
 	}
 
+	register(name, creator, ...dependencies) {
+		if (!(creator instanceof BeanConfig) || !creator.creator) {
+			throw new BeanError("second argument to Container#register must be a bean creator; " +
+					"use constructor(), factory() or value()");
+		}
+
+		if (creator instanceof BeanValue) {
+			this._beans.set(name, creator.value);
+
+			return;
+		}
+
+		this._registrations.set(name, { ...creator, dependencies });
+	}
+
 	registerClass(name, Constructor, ...dependencies) {
-		this._registrations.set(name, { Constructor, dependencies });
+		this.register(name, new BeanConstructor(Constructor), ...dependencies);
+	}
+
+	registerConstructor(name, Constructor, ...dependencies) {
+		this.register(name, new BeanConstructor(Constructor), ...dependencies);
 	}
 
 	registerFactory(name, factory, ...dependencies) {
-		this._registrations.set(name, { factory, dependencies });
+		this.register(name, new BeanFactory(factory), ...dependencies);
 	}
 
 	registerBean(name, bean) {
-		this._beans.set(name, bean);
+		this.register(name, new BeanValue(bean));
 	}
 
 	async get(name) {
@@ -95,10 +114,41 @@ exports.Container = class {
 
 };
 
+class BeanConfig {
+}
+BeanConfig.prototype.creator = false;
+
+class BeanFactory extends BeanConfig {
+	constructor(factory) {
+		super();
+		this.factory = factory;
+	}
+}
+BeanFactory.prototype.creator = true;
+exports.factory = (factory) => new BeanFactory(factory);
+
+class BeanConstructor extends BeanConfig {
+	constructor(Constructor) {
+		super();
+		this.Constructor = Constructor;
+	}
+}
+BeanConstructor.prototype.creator = true;
+exports.constructor = (Constructor) => new BeanConstructor(Constructor);
+
+class BeanValue extends BeanConfig {
+	constructor(value) {
+		super();
+		this.value = value;
+	}
+}
+BeanValue.prototype.creator = true;
+exports.value = (value) => new BeanValue(value);
+
 function BeanError(message) {
 	this.message = message;
 	this.stack = (new Error()).stack;
-};
+}
 BeanError.prototype = Object.create(Error.prototype);
 BeanError.prototype.constructor = BeanError;
 

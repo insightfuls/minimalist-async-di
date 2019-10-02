@@ -1,4 +1,4 @@
-const { Container } = require(".");
+const { Container, constructor, factory, value } = require(".");
 
 const container = new Container();
 
@@ -20,7 +20,8 @@ class Pudding {
 	}
 }
 
-container.registerClass("pudding", Pudding, "butter", "store.sugar", "milk", "flour");
+container.register("pudding", constructor(Pudding), "butter", "store.sugar", "milk", "flour");
+// or container.registerClass("pudding", Pudding, "butter", "store.sugar", "milk", "flour");
 
 /*
  * Register cream-top-milk which we can separate.
@@ -55,7 +56,8 @@ async function createPasteurizedCreamTopMilk() {
 	return await (new CreamTopMilk()).pasteurize();
 }
 
-container.registerFactory("creamTopMilk", createPasteurizedCreamTopMilk);
+container.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
+// or container.registerFactory("creamTopMilk", createPasteurizedCreamTopMilk);
 
 /*
  * Register asynchronous factory functions.
@@ -70,8 +72,8 @@ async function milk(creamTopMilk) {
 	return await creamTopMilk.getMilk();
 }
 
-container.registerFactory("butter", createButter, "creamTopMilk");
-container.registerFactory("milk", milk, "creamTopMilk");
+container.register("butter", factory(createButter), "creamTopMilk");
+container.register("milk", factory(milk), "creamTopMilk");
 
 /*
  * Register a synchronous factory function.
@@ -85,7 +87,7 @@ function sift(ingredient) {
 	return `sifted ${ingredient}`;
 }
 
-container.registerFactory("flour", createFlour, "store");
+container.register("flour", factory(createFlour), "store");
 
 /*
  * Register a pre-constructed bean.
@@ -96,13 +98,15 @@ const store = {
 	flour: "flour"
 };
 
-container.registerBean("store", store);
+container.register("store", value(store));
+// or container.registerBean("store", store);
 
 /*
  * Get the pudding from the container and cook it!
  */
 
 container
-	.get("pudding")
-	.then((pudding) => pudding.cook())
-	.then(console.log);
+.get("pudding")
+.then((pudding) => pudding.cook())
+.then(console.log);
+
