@@ -99,8 +99,8 @@ Factory functions, which can be either synchronous or asynchronous (returning a 
 Here is a synchronous one:
 
 ```
-function createFlour(unsiftedFlour) {
-	return sift(unsiftedFlour);
+function createFlour(store) {
+	return sift(store.flour);
 }
 
 function sift(ingredient) {
@@ -109,7 +109,7 @@ function sift(ingredient) {
 ```
 
 ```
-container.register("flour", factory(createFlour), "store.flour");
+container.register("flour", factory(createFlour), "store");
 ```
 
 And some asynchronous ones:

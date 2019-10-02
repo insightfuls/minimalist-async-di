@@ -24,8 +24,8 @@ class Pudding {
 	}
 }
 
-function createFlour(unsiftedFlour) {
-	return sift(unsiftedFlour);
+function createFlour(store) {
+	return sift(store.flour);
 }
 
 function sift(ingredient) {
@@ -79,7 +79,7 @@ const container = new Container();
 
 container.register("store", value(localStore));
 container.register("pudding", constructor(Pudding), "butter", "sugar", "milk", "flour");
-container.register("flour", factory(createFlour), "store.flour");
+container.register("flour", factory(createFlour), "store");
 container.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
 container.register("butter", factory(createButter), "creamTopMilk");
 container.register("milk", factory(createMilk), "creamTopMilk");
