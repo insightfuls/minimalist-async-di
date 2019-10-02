@@ -59,18 +59,13 @@ class CreamTopMilk {
 	}
 }
 
-function createPasteurizedCreamTopMilk() {
-	// this returns a promise because `pasteurize()` is async
-	return (new CreamTopMilk()).pasteurize();
+async function createPasteurizedCreamTopMilk() {
+	return await (new CreamTopMilk()).pasteurize();
 }
 
 function createButter(creamTopMilk) {
 	return creamTopMilk.getCream()
 	.then(cream => `butter churned from ${cream}`);
-}
-
-async function createMilk(creamTopMilk) {
-	return await creamTopMilk.getMilk();
 }
 
 /*
