@@ -1,3 +1,5 @@
+"use strict";
+
 exports.Container = class Container {
 
 	constructor() {

@@ -1,3 +1,5 @@
+"use strict";
+
 const { Container, value, constructor, factory } = require(".");
 
 /*

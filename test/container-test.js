@@ -1,3 +1,5 @@
+"use strict";
+
 const expect = require("chai").expect;
 
 const { Container, constructor, factory, value, BeanError } = require("../src/container");
@@ -113,6 +115,12 @@ describe('Container', function () {
 			container.register("foo", value({ bar: "baz" }));
 
 			expect(await container.get("foo.bar")).to.equal("baz");
+		});
+
+		it('does not bind function of bean', async function () {
+			container.register("foo", value({ bar: function() { return this; } }));
+
+			expect((await container.get("foo.bar"))()).to.be.undefined;
 		});
 
 		it('gets nested property of bean', async function () {
