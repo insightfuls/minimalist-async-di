@@ -58,40 +58,46 @@ exports.Container = class Container {
 			return await this._pending.get(name);
 		}
 
-		if (!this._registrations.has(name)) {
-			const lastDot = name.lastIndexOf(".");
+		if (this._registrations.has(name)) {
+			const promise = this._createBeanNamed(name, ancestors);
 
-			if (lastDot !== -1) {
-				try {
-					const bean = await this._resolveBeanNamed(name.slice(0, lastDot), ancestors);
+			this._pending.set(name, promise);
+			this._registrations.delete(name);
 
-					return {
-						parent: bean.bean,
-						bean: bean.bean[name.slice(lastDot + 1)]
-					};
-				} catch (e) {
-					if (!(e instanceof BeanError)) {
-						throw e;
-					}
+			const bean = await promise;
 
-					/* fall through */
-				}
-			}
+			this._beans.set(name, bean);
+			this._pending.delete(name);
 
-			throw new BeanError(`no bean registered with name '${name}'`);
+			return bean;
 		}
 
-		const promise = this._createBeanNamed(name, ancestors);
+		const propertyOfParentBean = await this._maybeResolvePropertyOfParentBean(name, ancestors);
 
-		this._pending.set(name, promise);
-		this._registrations.delete(name);
+		if (propertyOfParentBean) return propertyOfParentBean;
 
-		const bean = await promise;
+		throw new BeanError(`no bean registered with name '${name}'`);
+	}
 
-		this._beans.set(name, bean);
-		this._pending.delete(name);
+	async _maybeResolvePropertyOfParentBean(name, ancestors) {
+		const lastDot = name.lastIndexOf(".");
 
-		return bean;
+		if (lastDot !== -1) {
+			try {
+				const bean = await this._resolveBeanNamed(name.slice(0, lastDot), ancestors);
+
+				return {
+					parent: bean.bean,
+					bean: bean.bean[name.slice(lastDot + 1)]
+				};
+			} catch (e) {
+				if (!(e instanceof BeanError)) {
+					throw e;
+				}
+
+				/* fall through */
+			}
+		}
 	}
 
 	async _createBeanNamed(name, ancestors) {
