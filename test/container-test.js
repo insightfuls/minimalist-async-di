@@ -23,10 +23,16 @@ describe('Container', function () {
 			}).to.throw(BeanError);
 		});
 
-		it('registers pre-constructed bean', async function () {
+		it('registers pre-created bean', async function () {
 			container.register("foo", value("bar"));
 
 			expect(await container.get("foo")).to.equal("bar");
+		});
+
+		it('throws registering pre-created bean with dependencies', function () {
+			expect(() => {
+				container.register("foo", value("bar"), "baz");
+			}).to.throw(BeanError);
 		});
 
 		it('registers constructor', async function () {
@@ -65,13 +71,13 @@ describe('Container', function () {
 
 	describe('registration syntax sugar', function () {
 
-		it('registers pre-constructed bean with registerValue', async function () {
+		it('registers pre-created bean with registerValue', async function () {
 			container.registerValue("foo", "bar");
 
 			expect(await container.get("foo")).to.equal("bar");
 		});
 
-		it('registers pre-constructed bean with registerBean', async function () {
+		it('registers pre-created bean with registerBean', async function () {
 			container.registerBean("foo", "bar");
 
 			expect(await container.get("foo")).to.equal("bar");

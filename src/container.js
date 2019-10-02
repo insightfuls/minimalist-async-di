@@ -15,6 +15,10 @@ exports.Container = class Container {
 		}
 
 		if (creator instanceof BeanValue) {
+			if (dependencies.length) {
+				throw new BeanError("pre-created beans cannot have dependencies");
+			}
+
 			this._beans.set(name, { bean: creator.value });
 
 			return;
