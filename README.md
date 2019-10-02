@@ -2,14 +2,14 @@
 
 Minimalist asynchronous IoC/dependency injection container.
 
- * Register constructors (classes) along with names of dependencies to provide as arguments.
- * Register synchronous or asynchronous (returning a Promise) factory functions along with names of dependencies to provide as arguments.
- * Register pre-constructed beans (e.g. to provide configuration values).
- * Getting beans is asynchronous (returns a Promise).
- * Use dot notation to get (or specify as a dependency) a property of a bean instead of the bean itself.
- * All beans are singletons.
-   * Use a bean which is itself a factory if you need to generate new instances repeatedly.
-   * Use a bean which is itself a factory producing containers if you need to repeatedly create scopes with managed beans.
+* Register constructors (classes) along with names of dependencies to provide as arguments.
+* Register synchronous or asynchronous (returning a Promise) factory functions along with names of dependencies to provide as arguments.
+* Register pre-constructed beans (e.g. to provide configuration values).
+* Getting beans is asynchronous (returns a Promise).
+* Use dot notation to get (or specify as a dependency) a property of a bean instead of the bean itself.
+* All beans are singletons.
+	* Use a bean which is itself a factory if you need to generate new instances repeatedly.
+	* Use a bean which is itself a factory producing containers if you need to repeatedly create scopes with managed beans.
 
 ## Example
 
@@ -25,15 +25,15 @@ const container = new Container();
  */
 
 class Pudding {
-  constructor(butter, sugar, milk, flour) {
-    Object.assign(this, { butter, sugar, milk, flour });
-  }
-  cook() {
-    return `bake ${this.getMixture()}`;
-  }
-  getMixture() {
-    return `mixture of ${this.butter}, ${this.sugar}, ${this.milk}, and ${this.flour}`
-  }
+	constructor(butter, sugar, milk, flour) {
+		Object.assign(this, { butter, sugar, milk, flour });
+	}
+	cook() {
+		return `bake ${this.getMixture()}`;
+	}
+	getMixture() {
+		return `mixture of ${this.butter}, ${this.sugar}, ${this.milk}, and ${this.flour}`
+	}
 }
 
 container.registerClass("pudding", Pudding, "butter", "store.sugar", "milk", "flour");
@@ -43,28 +43,28 @@ container.registerClass("pudding", Pudding, "butter", "store.sugar", "milk", "fl
  */
 
 class CreamTopMilk {
-  constructor() {
-    this.state = "cream-top milk";
-    this.cream = "";
-    this.milkWithoutCream = "";
-  }
-  async getCream() {
-    await this.separate();
-    return this.cream;
-  }
-  async getMilk() {
-    await this.separate();
-    return this.milkWithoutCream;
-  }
-  async pasteurize() {
-    this.state = `pasteurized ${this.state}`;
-    return this;
-  }
-  async separate() {
-    this.cream = `cream separated from ${this.state}`;
-    this.milkWithoutCream = `milk separated from ${this.state}`;
-    return this;
-  }
+	constructor() {
+		this.state = "cream-top milk";
+		this.cream = "";
+		this.milkWithoutCream = "";
+	}
+	async getCream() {
+		await this.separate();
+		return this.cream;
+	}
+	async getMilk() {
+		await this.separate();
+		return this.milkWithoutCream;
+	}
+	async pasteurize() {
+		this.state = `pasteurized ${this.state}`;
+		return this;
+	}
+	async separate() {
+		this.cream = `cream separated from ${this.state}`;
+		this.milkWithoutCream = `milk separated from ${this.state}`;
+		return this;
+	}
 }
 
 async function createPasteurizedCreamTopMilk() {
@@ -78,12 +78,12 @@ container.registerFactory("creamTopMilk", createPasteurizedCreamTopMilk);
  */
 
 async function createButter(creamTopMilk) {
-  const cream = await creamTopMilk.getCream();
-  return `butter churned from ${cream}`;
+	const cream = await creamTopMilk.getCream();
+	return `butter churned from ${cream}`;
 }
 
 async function milk(creamTopMilk) {
-  return await creamTopMilk.getMilk();
+	return await creamTopMilk.getMilk();
 }
 
 container.registerFactory("butter", createButter, "creamTopMilk");
@@ -94,11 +94,11 @@ container.registerFactory("milk", milk, "creamTopMilk");
  */
 
 function createFlour(store) {
-  return sift(store.flour);
+	return sift(store.flour);
 }
 
 function sift(ingredient) {
-  return `sifted ${ingredient}`;
+	return `sifted ${ingredient}`;
 }
 
 container.registerFactory("flour", createFlour, "store");
@@ -108,8 +108,8 @@ container.registerFactory("flour", createFlour, "store");
  */
 
 const store = {
-  sugar: "sugar",
-  flour: "flour"
+	sugar: "sugar",
+	flour: "flour"
 };
 
 container.registerBean("store", store);
@@ -119,16 +119,16 @@ container.registerBean("store", store);
  */
 
 container
-  .get("pudding")
-  .then((pudding) => pudding.cook())
-  .then(console.log);
+	.get("pudding")
+	.then((pudding) => pudding.cook())
+	.then(console.log);
 ```
 
 ## Version history
 
 Major changes:
 
- * `v2`: Removed misguided `initializeWith()/init()` feature. Factory functions are equally effective and don't couple beans to the container.
- * `v1`: Initial version.
+* `v2`: Removed misguided `initializeWith()/init()` feature. Factory functions are equally effective and don't couple beans to the container.
+* `v1`: Initial version.
 
 For details on minor/patch changes, consult the commit history.
