@@ -140,25 +140,19 @@ class CreamTopMilk {
 	}
 }
 
-function createPasteurizedCreamTopMilk() {
-	// this returns a promise because `pasteurize()` is async
-	return (new CreamTopMilk()).pasteurize();
+async function createPasteurizedCreamTopMilk() {
+	return await (new CreamTopMilk()).pasteurize();
 }
 
 function createButter(creamTopMilk) {
 	return creamTopMilk.getCream()
 	.then(cream => `butter churned from ${cream}`);
 }
-
-async function createMilk(creamTopMilk) {
-	return await creamTopMilk.getMilk();
-}
 ```
 
 ```
 container.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
 container.register("butter", factory(createButter), "creamTopMilk");
-container.register("milk", factory(createMilk), "creamTopMilk");
 ```
 
 `registerFactory` is syntax sugar for `register` with `factory`, so we could have used this if we preferred:
@@ -166,7 +160,6 @@ container.register("milk", factory(createMilk), "creamTopMilk");
 ```
 container.registerFactory("creamTopMilk", createPasteurizedCreamTopMilk);
 container.registerFactory("butter", createButter, "creamTopMilk");
-container.registerFactory("milk", createMilk, "creamTopMilk");
 ```
 
 ### Getting beans using dot notation
@@ -177,6 +170,18 @@ This registers a `sugar` bean which is created using the `sift` function ()defin
 
 ```
 container.register("sugar", factory(sift), "store.sugar");
+```
+
+### Using beans as constructors or factories
+
+You can use a bean itself as a constructor or factory to create another bean. Just give the name of the bean instead of an actual constructor or factory function.
+
+If you use a property of a bean (using dot notation) then the function will be called as a method, with `this` set to the bean.
+
+Here we register a `milk` bean which is created using the `getMilk` method on the `creamTopMilk` bean.
+
+```
+container.register("milk", factory("creamTopMilk.getMilk"));
 ```
 
 ### All beans are singletons

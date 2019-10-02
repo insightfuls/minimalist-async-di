@@ -82,7 +82,7 @@ container.register("pudding", constructor(Pudding), "butter", "sugar", "milk", "
 container.register("flour", factory(createFlour), "store");
 container.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
 container.register("butter", factory(createButter), "creamTopMilk");
-container.register("milk", factory(createMilk), "creamTopMilk");
+container.register("milk", factory("creamTopMilk.getMilk"));
 container.register("sugar", factory(sift), "store.sugar");
 
 container

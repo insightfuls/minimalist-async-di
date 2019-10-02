@@ -13,7 +13,7 @@ exports.Container = class Container {
 		}
 
 		if (creator instanceof BeanValue) {
-			this._beans.set(name, creator.value);
+			this._beans.set(name, { bean: creator.value });
 
 			return;
 		}
@@ -42,10 +42,10 @@ exports.Container = class Container {
 	}
 
 	async get(name) {
-		return this._get(new Set(), name);
+		return (await this._resolveBeanNamed(name, new Set())).bean;
 	}
 
-	async _get(ancestors, name) {
+	async _resolveBeanNamed(name, ancestors) {
 		if (ancestors.has(name)) {
 			throw new BeanError(`dependency '${name}' creates a cycle`);
 		}
@@ -63,9 +63,12 @@ exports.Container = class Container {
 
 			if (lastDot !== -1) {
 				try {
-					const bean = await this._get(ancestors, name.slice(0, lastDot));
+					const bean = await this._resolveBeanNamed(name.slice(0, lastDot), ancestors);
 
-					return bean[name.slice(lastDot + 1)];
+					return {
+						parent: bean.bean,
+						bean: bean.bean[name.slice(lastDot + 1)]
+					};
 				} catch (e) {
 					if (!(e instanceof BeanError)) {
 						throw e;
@@ -78,7 +81,7 @@ exports.Container = class Container {
 			throw new BeanError(`no bean registered with name '${name}'`);
 		}
 
-		const promise = this._instantiate(ancestors, name);
+		const promise = this._createBeanNamed(name, ancestors);
 
 		this._pending.set(name, promise);
 		this._registrations.delete(name);
@@ -91,28 +94,57 @@ exports.Container = class Container {
 		return bean;
 	}
 
-	async _instantiate(ancestors, name) {
+	async _createBeanNamed(name, ancestors) {
 		const registration = this._registrations.get(name);
 
 		try {
-			const dependencies = await Promise.all(registration.dependencies.map(
-					dependency => this._get(new Set(ancestors).add(name), dependency)));
+			const dependencyAncestors = new Set(ancestors).add(name);
 
-			let bean;
-			if (registration.Constructor) {
-				bean = new registration.Constructor(...dependencies);
-			}
-			if (registration.factory) {
-				bean = await registration.factory(...dependencies);
-			}
+			const resolvedDependencies =
+					await Promise.all(this._dependencyNamesFor(registration)
+					.map(dependency => this._resolveBeanNamed(dependency, dependencyAncestors)));
 
-			return bean;
+			return await this._createBeanFor(registration, resolvedDependencies);
 		} catch (e) {
 			if (e instanceof BeanError) {
-				throw new BeanError(`while instantiating bean '${name}':\n${e.message}`);
+				throw new BeanError(`while creating bean '${name}':\n${e.message}`);
 			}
 
-			throw new Error(`while instantiating bean '${name}':\n${e.message}`);
+			throw new Error(`while creating bean '${name}':\n${e.message}`);
+		}
+	}
+
+	_dependencyNamesFor(registration) {
+		const dependencyNames = registration.dependencies;
+
+		if (typeof registration.Constructor === 'string') {
+			dependencyNames.push(registration.Constructor);
+		}
+		if (typeof registration.factory === 'string') {
+			dependencyNames.push(registration.factory);
+		}
+
+		return dependencyNames;
+	}
+
+	async _createBeanFor(registration, resolvedDependencies) {
+		let fn = registration.Constructor || registration.factory;
+
+		if (typeof fn === 'string') {
+			const resolvedFn = resolvedDependencies.pop();
+			fn = resolvedFn.bean;
+			if (registration.factory && resolvedFn.parent) {
+				fn = fn.bind(resolvedFn.parent)
+			}
+		}
+
+		const dependencies = resolvedDependencies.map(dependency => dependency.bean);
+
+		if (registration.Constructor) {
+			return { bean: new fn(...dependencies) };
+		}
+		if (registration.factory) {
+			return { bean: await fn(...dependencies) };
 		}
 	}
 

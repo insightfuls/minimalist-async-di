@@ -27,10 +27,17 @@ describe('Container', function () {
 			expect(await container.get("foo")).to.equal("bar");
 		});
 
-		it('registers bean class', async function () {
+		it('registers constructor', async function () {
 			container.register("foo", constructor(ContainerTestBean));
 
 			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
+		});
+
+		it('registers bean as a constructor', async function () {
+			container.register("foo", value(ContainerTestBean));
+			container.register("bar", constructor("foo"));
+
+			expect(await container.get("bar")).to.be.an.instanceOf(ContainerTestBean);
 		});
 
 		it('registers synchronous factory function', async function () {
@@ -43,6 +50,13 @@ describe('Container', function () {
 			container.register("foo", factory(async () => new ContainerTestBean()));
 
 			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
+		});
+
+		it('registers bean as a factory function', async function () {
+			container.register("foo", value(async () => new ContainerTestBean()));
+			container.register("bar", factory("foo"));
+
+			expect(await container.get("bar")).to.be.an.instanceOf(ContainerTestBean);
 		});
 
 	});
@@ -120,6 +134,20 @@ describe('Container', function () {
 				() => { throw new Error("promise resolved but expecting rejection"); },
 				(error) => { expect(error).not.to.be.an.instanceOf(BeanError); }
 			);
+		});
+
+		it('uses property of bean as factory with this set correctly', async function () {
+			const object = {
+				bean: new ContainerTestBean(),
+				create() {
+					return this.bean;
+				}
+			};
+
+			container.register("object", value(object));
+			container.register("foo", factory("object.create"));
+
+			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
 		});
 
 	});
