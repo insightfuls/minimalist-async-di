@@ -206,7 +206,7 @@ container.register("sugar", factory(sift), "store.sugar");
 
 ### Registering beans using dot notation
 
-When a bean is **registered** which contains a dot in its name, if the parent bean **has already been registered**, the new bean will be added as a property on the parent bean.
+When a bean is *registered* which contains a dot in its name, if the parent bean **has already been registered**, the new bean will be added as a property on the parent bean.
 
 If the parent bean has already been created when the property is registered, the property will be created immediately (though asynchronously), mutating the parent bean; if an error occurs, you will not find out about it until and unless you retrieve the parent bean again. If the parent bean has not been created (only registered), the property will be registered as its own bean until/unless the parent is retrieved, at which point all its property beans will be created and added to it.
 
@@ -252,7 +252,7 @@ For both of these (and the plain object used originally), we just need to do:
 container.register("store", value(localStore));
 ```
 
-Or we can use either of the `bean` or `collectiion` specifiers if we prefer:
+Or we can use either of the `bean` or `collection` specifiers if we prefer:
 
 ```
 container.register(bean("store"), value(localStore));
@@ -324,7 +324,7 @@ However, it is possible to provide a promise for the dependency using `promise`,
 
 * `promise`: The dependency is received asynchronously, so you can begin other processing while waiting for it to arrive.
 * `promiser`: You only call the factory *if* you need to use the dependency. If you don't need it, it is never retrieved (perhaps never even created) so it can be used for dependencies which might not be needed in practice.
-* `promiser`: You only call the factory *when* you need to use the dependency. This gives you a tool to use to avoid cyclic dependencies (which, as much as we try to avoid them, sometimes do seem like the right solution). As long as there is a `promiser` somewhere in the cycle, and the `promiser` isn't called as part of creating the bean (but deferred until it is needs to be used), the beans will be able to be created.
+* `promiser`: You only call the factory *when* you need to use the dependency. This gives you a tool to use to avoid cyclic dependencies (which, as much as we try to avoid them, sometimes do seem like the right solution). As long as there is a `promiser` somewhere in the cycle, and the `promiser` isn't called as part of creating the bean (but deferred until it needs to be used), the beans will be able to be created.
 
 This `Pudding` class uses both kinds of asynchronous injection. It receives the mixture asynchronously so that the oven can be preheated while the mixture is being prepared, and it only gets meringue if the user actually wants it (calls the `topWithMeringue()` method).
 
@@ -362,7 +362,7 @@ The `bean` injector was also used above, for clarity. It's exactly the same as j
 
 Seeker injection injects a synchronous factory function which can be called to obtain a dependency. Because the injected factory function is synchronous, but bean creation is asynchronous, **it is not guaranteed to succeed**. In fact, it will only succeed if the bean **has already been created when the factory function is called**. Even if the bean *could* be created synchronously, unless it *has* been created, the factory function will return `undefined`. That is why it is called seeker injection: it seeks the bean, but it might not find it.
 
-Using seeker injection is **not recommended**, however it is provided for completeness. It can be used with existing components which expect to be provided with a synchronous factory function. Like `promiser` injection, it can also be used to break dependency cycles; hopefully the dependency has been created by the time you call the factory function (you might need to put in some effort to ensure this).
+Using seeker injection is **not recommended**, in fact **highly discouraged**, however it is provided for completeness. It can be used with existing components which expect to be provided with a synchronous factory function. Like `promiser` injection, it can also be used to break dependency cycles; hopefully the dependency has been created by the time you call the factory function (you might need to put in some effort to ensure this).
 
 Here is a chicken and egg example that explicitly handles the `undefined` case:
 
@@ -454,7 +454,7 @@ container.register("meringue", factory("meringueFactory.create"));
 
 If you need to repeatedly create scopes with managed beans, use a bean which is a factory which produces containers. It can be convenient to provide the parent container as a dependency to such a factory so it can use the `get` method to "reuse" beans from the parent container in the child container.
 
-Suppose the `store`, `chicken`, `createEgg` and `meringueFactory` beans are "global", registered in the parent container. You could register a factory which creates child containers and registers beans like below. Notice how the `store` and `meringueFactory` beans are reused by registering `parent.get` as a factory function, so they will be created on demand, whereas we get the parent's `createEgg` bean when we instantiate the scope so it is inserted pre-created into the child scope.
+Suppose the `store`, `chicken`, `createEgg` and `meringueFactory` beans are "global", registered in the parent container. You could register a factory which creates child containers and registers beans like below. Notice how the `store` and `meringueFactory` beans are reused by registering `parent.get` as a factory function, so they will be created on demand, whereas we get the parent's `createEgg` bean when we instantiate the scope so it is inserted pre-created into the child container.
 
 ```
 container.register("createCookingScope", factory(createCreateCookingScope), value(container));
@@ -506,83 +506,83 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 ### Container
 
-* `new Container()`
-	* creates a container
+`new Container()`
+* creates a container
 
-* `container.register(specifier, creator, dependency1, ...)`
-	* registers a bean
-	* the `specifier` is the name of bean to register, or a special specifier (see [Specifiers](#specifiers) below)
-	* the `creator` (see [Creators](#creators) below) specifies how to create the bean
-	* the dependencies are bean names or injectors (see [Injectors](#injectors) below)
+`container.register(specifier, creator, dependency1, ...)`
+* registers a bean
+* the `specifier` is the name of bean to register, or a special specifier (see [Specifiers](#specifiers) below)
+* the `creator` (see [Creators](#creators) below) specifies how to create the bean
+* the dependencies are bean names or injectors (see [Injectors](#injectors) below)
 
-* `container.registerValue(name, val)`
-	* syntax sugar for `container.register(name, value(val))`
+`container.registerValue(name, val)`
+* syntax sugar for `container.register(name, value(val))`
 
-* `container.registerBean(name, val)`
-	* syntax sugar for `container.register(name, value(val))`
+`container.registerBean(name, val)`
+* syntax sugar for `container.register(name, value(val))`
 
-* `container.registerPromise(name, pmise)`
-	* syntax sugar for `container.register(name, promise(pmise))`
+`container.registerPromise(name, pmise)`
+* syntax sugar for `container.register(name, promise(pmise))`
 
-* `container.registerConstructor(name, Ctor, dependency1, ...)`
-	* syntax sugar for `container.register(name, constructor(Ctor), dependency1, ...)`
+`container.registerConstructor(name, Ctor, dependency1, ...)`
+* syntax sugar for `container.register(name, constructor(Ctor), dependency1, ...)`
 
-* `container.registerClass(name, Ctor, dependency1, ...)`
-	* syntax sugar for `container.register(name, constructor(Ctor), dependency1, ...)`
+`container.registerClass(name, Ctor, dependency1, ...)`
+* syntax sugar for `container.register(name, constructor(Ctor), dependency1, ...)`
 
-* `container.registerFactory(name, ftory, dependency1, ...)`
-	* syntax sugar for `container.register(name, factory(ftory), dependency1, ...)`
+`container.registerFactory(name, ftory, dependency1, ...)`
+* syntax sugar for `container.register(name, factory(ftory), dependency1, ...)`
 
-* `container.get(name)`
-	* gets the bean named `name` asynchronously (returns a promise to the bean)
+`container.get(name)`
+* gets the bean named `name` asynchronously (returns a promise to the bean)
 
 ### Specifiers
 
-* `bean(name)`
-	* Specifier which specifies a normal bean named `name`
-	* You can just provide the `name` as the specifier without using `bean()` for the same effect
+`bean(name)`
+* Specifier which specifies a normal bean named `name`
+* You can just provide the `name` as the specifier without using `bean()` for the same effect
 
-* `collection(name, getter, setter)`
-	* Specifier that specifies a collection bean named `name`
-	* Properties are retrieved by calling the function `await getter(prop)` with `this` set to the parent bean
-	* Properties are set by calling the function `await setter(prop, val)` with `this` set to the parent bean
-	* The getters and setters work if they're synchronous or asynchronous
-	* If the bean is a `Map`, `Container` or plain object, you probably don't need to use this, as the container supports those kinds of beans natively
+`collection(name, getter, setter)`
+* Specifier that specifies a collection bean named `name`
+* Properties are retrieved by calling the function `await getter(prop)` with `this` set to the parent bean
+* Properties are set by calling the function `await setter(prop, val)` with `this` set to the parent bean
+* The getters and setters work if they're synchronous or asynchronous
+* If the bean is a `Map`, `Container` or plain object, you probably don't need to use this, as the container supports those kinds of beans natively
 
 ### Creators
 
-* `value(val)`
-	* Creator which uses the value `val` itself as the bean
+`value(val)`
+* Creator which uses the value `val` itself as the bean
 
-* `promise(pmise)`
-	* Creator which expects the promise `pmise` to resolve to the bean
+`promise(pmise)`
+* Creator which expects the promise `pmise` to resolve to the bean
 
-* `constructor(Ctor)`
-	* Creator which creates the bean by calling `new Ctor(dependency1, ...)`
-	* If `Ctor` is a string, the bean with that name will be used as the constructor
+`constructor(Ctor)`
+* Creator which creates the bean by calling `new Ctor(dependency1, ...)`
+* If `Ctor` is a string, the bean with that name will be used as the constructor
 
-* `factory(ftory)`
-	* Creator which creates the bean by calling `await ftory(dependency1, ...)`
-	* This works for both synchronous and asynchronous factory functions
-	* If `ftory` is a string, the bean with that name will be used as the factory
+`factory(ftory)`
+* Creator which creates the bean by calling `await ftory(dependency1, ...)`
+* This works for both synchronous and asynchronous factory functions
+* If `ftory` is a string, the bean with that name will be used as the factory
 
 ### Injectors
 
-* `value(val)`
-	* Injector which injects the value `val` itself
+`value(val)`
+* Injector which injects the value `val` itself
 
-* `bean(name)`
-	* Injector which injects the bean named `name`
-	* You can just provide the `name` as a dependency without using `bean()` for the same effect
+`bean(name)`
+* Injector which injects the bean named `name`
+* You can just provide the `name` as a dependency without using `bean()` for the same effect
 
-* `promise(name)`
-	* Injector which injects a promise for the bean named `name`
+`promise(name)`
+* Injector which injects a promise for the bean named `name`
 
-* `promiser(name)`
-	* Injector which injects an asynchronous factory function (which returns a promise) for the bean named `name`
+`promiser(name)`
+* Injector which injects an asynchronous factory function (which returns a promise) for the bean named `name`
 
-* `seeker(name)`
-	* Injector which injects a synchronous factory function for the bean named `name`, which will however return `undefined` if the bean does not exist when the function is called
+`seeker(name)`
+* Injector which injects a synchronous factory function for the bean named `name`, which will however return `undefined` if the bean does not exist when the function is called
 
 ## Version history
 
