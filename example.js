@@ -34,14 +34,6 @@ class CreamTopMilk {
 		this.cream = "";
 		this.milkWithoutCream = "";
 	}
-	async getCream() {
-		await this.separate();
-		return this.cream;
-	}
-	async getMilk() {
-		await this.separate();
-		return this.milkWithoutCream;
-	}
 	async pasteurize() {
 		this.state = `pasteurized ${this.state}`;
 		return this;
@@ -51,10 +43,14 @@ class CreamTopMilk {
 		this.milkWithoutCream = `milk separated from ${this.state}`;
 		return this;
 	}
-}
-
-async function createPasteurizedCreamTopMilk() {
-	return await (new CreamTopMilk()).pasteurize();
+	async getCream() {
+		await this.separate();
+		return this.cream;
+	}
+	async getMilk() {
+		await this.separate();
+		return this.milkWithoutCream;
+	}
 }
 
 function createButter(creamTopMilk) {
@@ -142,7 +138,7 @@ function createCreateCookingScope(parent) {
 		child.register("parentCreateEgg", value(await parent.get("createEgg")));
 		child.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
 		child.register("flour", factory(createFlour), "store");
-		child.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
+		child.register("creamTopMilk", promise((new CreamTopMilk()).pasteurize()));
 		child.register("butter", factory(createButter), "creamTopMilk");
 		child.register("milk", factory("creamTopMilk.getMilk"));
 		child.register("mixture", factory("mixer.getMixture"));

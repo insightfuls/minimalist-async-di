@@ -7,6 +7,7 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 	* [Create a container](#create-a-container)
 	* [Getting beans](#getting-beans)
 	* [Registering pre-created beans](#registering-pre-created-beans)
+	* [Promising beans](#promising-beans)
 	* [Registering constructors/classes](#registering-constructors/classes)
 	* [Registering factory functions](#registering-factory-functions)
 	* [Getting beans using dot notation](#getting-beans-using-dot-notation)
@@ -78,9 +79,52 @@ container.register("store", value(localStore));
 * `container.registerValue("store", localStore);`
 * `container.registerBean("store", localStore);`
 
+### Promising beans
+
+You can also register promises to beans using the `register` method with the `promise` creator.
+
+We can use this to promise pasteurized cream-top milk. Because `pasteurize()` is an `async` function, it returns a promise.
+
+```
+class CreamTopMilk {
+	constructor() {
+		this.state = "cream-top milk";
+		this.cream = "";
+		this.milkWithoutCream = "";
+	}
+	async pasteurize() {
+		this.state = `pasteurized ${this.state}`;
+		return this;
+	}
+	async separate() {
+		this.cream = `cream separated from ${this.state}`;
+		this.milkWithoutCream = `milk separated from ${this.state}`;
+		return this;
+	}
+	async getCream() {
+		await this.separate();
+		return this.cream;
+	}
+	async getMilk() {
+		await this.separate();
+		return this.milkWithoutCream;
+	}
+}
+```
+
+```
+container.register("creamTopMilk", promise((new CreamTopMilk()).pasteurize()));
+```
+
+`registerPromise` is syntax sugar for `register` with `promise`, so we could have used this if we preferred:
+
+```
+container.registerPromise("creamTopMilk", (new CreamTopMilk()).pasteurize());
+```
+
 ### Registering constructors/classes
 
-We can register constructor functions (or ES6 classes) using the `register` method with the `constructor` creator.
+You can register constructor functions (or ES6 classes) using the `register` method with the `constructor` creator.
 
 Here is a `Mixer` class which might be exported from some module; it requires various ingredients to be supplied to its constructor:
 
@@ -126,38 +170,9 @@ function sift(ingredient) {
 container.register("flour", factory(createFlour), "store");
 ```
 
-And some asynchronous ones:
+And an asynchronous one:
 
 ```
-class CreamTopMilk {
-	constructor() {
-		this.state = "cream-top milk";
-		this.cream = "";
-		this.milkWithoutCream = "";
-	}
-	async getCream() {
-		await this.separate();
-		return this.cream;
-	}
-	async getMilk() {
-		await this.separate();
-		return this.milkWithoutCream;
-	}
-	async pasteurize() {
-		this.state = `pasteurized ${this.state}`;
-		return this;
-	}
-	async separate() {
-		this.cream = `cream separated from ${this.state}`;
-		this.milkWithoutCream = `milk separated from ${this.state}`;
-		return this;
-	}
-}
-
-async function createPasteurizedCreamTopMilk() {
-	return await (new CreamTopMilk()).pasteurize();
-}
-
 function createButter(creamTopMilk) {
 	return creamTopMilk.getCream()
 	.then(cream => `butter churned from ${cream}`);
@@ -165,7 +180,6 @@ function createButter(creamTopMilk) {
 ```
 
 ```
-container.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
 container.register("butter", factory(createButter), "creamTopMilk");
 ```
 
@@ -173,7 +187,6 @@ container.register("butter", factory(createButter), "creamTopMilk");
 
 ```
 container.registerFactory("flour", createFlour, "store");
-container.registerFactory("creamTopMilk", createPasteurizedCreamTopMilk);
 container.registerFactory("butter", createButter, "creamTopMilk");
 ```
 
@@ -181,7 +194,7 @@ container.registerFactory("butter", createButter, "creamTopMilk");
 
 You can get properties of beans, or specify them as dependencies, using dot notation. If there is no bean which actually contains the dot in its name, the container will get the property on the "parent bean".
 
-This registers a `sugar` bean which is created using the `sift` function ()defined earlier) as a factory. It receives a dependency which is the `sugar` property from the `store` bean.
+This registers a `sugar` bean which is created using the `sift` function (defined earlier) as a factory. It receives a dependency which is the `sugar` property from the `store` bean.
 
 ```
 container.register("sugar", factory(sift), "store.sugar");
@@ -376,7 +389,7 @@ function createCreateCookingScope(parent) {
 		child.register("parentCreateEgg", value(await parent.get("createEgg")));
 		child.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
 		child.register("flour", factory(createFlour), "store");
-		child.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
+		child.register("creamTopMilk", promise((new CreamTopMilk()).pasteurize());
 		child.register("butter", factory(createButter), "creamTopMilk");
 		child.register("milk", factory("creamTopMilk.getMilk"));
 		child.register("mixture", factory("mixer.getMixture"));

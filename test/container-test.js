@@ -26,7 +26,7 @@ describe('Container', function () {
 
 		it('throws registering with injector as creator', function () {
 			expect(() => {
-				container.register("foo", promise("bar"));
+				container.register("foo", promiser("bar"));
 			}).to.throw(BeanError);
 		});
 
@@ -39,6 +39,24 @@ describe('Container', function () {
 		it('throws registering pre-created bean with dependencies', function () {
 			expect(() => {
 				container.register("foo", value("bar"), "baz");
+			}).to.throw(BeanError);
+		});
+
+		it('registers promised bean', async function () {
+			container.register("foo", promise(Promise.resolve("bar")));
+
+			expect(await container.get("foo")).to.equal("bar");
+		});
+
+		it('throws registering promised bean with dependencies', function () {
+			expect(() => {
+				container.register("foo", promise(new Promise(resolve => resolve("bar"))), "baz");
+			}).to.throw(BeanError);
+		});
+
+		it('throws using promise injector as creator', function () {
+			expect(() => {
+				container.register("foo", promise("bar"));
 			}).to.throw(BeanError);
 		});
 
@@ -86,6 +104,12 @@ describe('Container', function () {
 
 		it('registers pre-created bean with registerBean', async function () {
 			container.registerBean("foo", "bar");
+
+			expect(await container.get("foo")).to.equal("bar");
+		});
+
+		it('registers promised bean with registerPromise', async function () {
+			container.registerPromise("foo", Promise.resolve("bar"));
 
 			expect(await container.get("foo")).to.equal("bar");
 		});
@@ -215,6 +239,13 @@ describe('Container', function () {
 			const args = (await container.get("foo")).args;
 			expect(args.length).to.equal(1);
 			expect(await args[0]).to.equal("baz");
+		});
+
+		it('throws using promise creator as injector', function () {
+			expect(() => {
+				container.register("foo", constructor(ContainerTestBean),
+						promise(Promise.resolve("bar")));
+			}).to.throw(BeanError);
 		});
 
 		it('provides asynchronous factory using promiser injector', async function () {

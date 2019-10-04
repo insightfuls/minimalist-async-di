@@ -28,6 +28,22 @@ exports.Container = class Container {
 			return;
 		}
 
+		if (creator instanceof BeanPromise) {
+			if (dependencies.length) {
+				throw new BeanError("promised beans cannot have dependencies");
+			}
+
+			const bean = creator.promise.then(bean => ({ bean }));
+
+			this._pending.set(name, bean);
+			bean.then(bean => {
+				this._beans.set(name, bean);
+				this._pending.delete(name);
+			});
+
+			return;
+		}
+
 		dependencies.forEach(dependency => {
 			if (typeof dependency !== 'string' &&
 					(!(dependency instanceof BeanConfig) || !dependency.injector )) {
@@ -39,12 +55,16 @@ exports.Container = class Container {
 		this._registrations.set(name, { ...creator, dependencies });
 	}
 
-	registerValue(name, bean) {
-		this.register(name, new BeanValue(bean));
+	registerValue(name, value) {
+		this.register(name, new BeanValue(value));
 	}
 
-	registerBean(name, bean) {
-		this.register(name, new BeanValue(bean));
+	registerBean(name, value) {
+		this.register(name, new BeanValue(value));
+	}
+
+	registerPromise(name, promise) {
+		this.register(name, new BeanPromise(promise));
 	}
 
 	registerConstructor(name, Constructor, ...dependencies) {
@@ -211,7 +231,7 @@ BeanConfig.prototype.creator = false;
 BeanConfig.prototype.injector = false;
 
 /*
- * value() is both a creator and an injector.
+ * value() and promise() are both creators and injectors.
  */
 
 class BeanValue extends BeanConfig {
@@ -223,6 +243,20 @@ class BeanValue extends BeanConfig {
 BeanValue.prototype.creator = true;
 BeanValue.prototype.injector = true;
 exports.value = (value) => new BeanValue(value);
+
+class BeanPromise extends BeanConfig {
+	constructor(nameOrPromise) {
+		super();
+		if (nameOrPromise.then) {
+			this.promise = nameOrPromise;
+			this.creator = true;
+		} else {
+			this.name = nameOrPromise;
+			this.injector = true;
+		}
+	}
+}
+exports.promise = (name) => new BeanPromise(name);
 
 /*
  * Other creators.
@@ -251,15 +285,6 @@ exports.factory = (factory) => new BeanFactory(factory);
  */
 
 exports.bean = (name) => name;
-
-class BeanPromise extends BeanConfig {
-	constructor(name) {
-		super();
-		this.name = name;
-	}
-}
-BeanPromise.prototype.injector = true;
-exports.promise = (name) => new BeanPromise(name);
 
 class BeanPromiser extends BeanConfig {
 	constructor(name) {
