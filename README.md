@@ -439,6 +439,9 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 * `container.registerBean(name, val)`
 	* syntax sugar for `container.register(name, value(val))`
 
+* `container.registerPromise(name, pmise)`
+	* syntax sugar for `container.register(name, promise(pmise))`
+
 * `container.registerConstructor(name, Ctor, dependency1, ...)`
 	* syntax sugar for `container.register(name, constructor(Ctor), dependency1, ...)`
 
