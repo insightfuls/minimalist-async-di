@@ -7,9 +7,10 @@ const { Container, value, constructor, factory, bean, promise, promiser, seeker 
  */
 
 const localStore = {
-	sugar: "castor sugar",
 	flour: "self-raising flour"
 };
+
+const castorSugar = "castor sugar";
 
 class Mixer {
 	constructor(butter, sugar, egg, milk, flour) {
@@ -121,6 +122,7 @@ class MeringueFactory {
 const container = new Container();
 
 container.register("store", value(localStore));
+container.register("store.sugar", value(castorSugar));
 container.register("chicken", constructor(Chicken), seeker("createEgg"));
 container.register("createEgg", factory(createCreateEgg), "chicken");
 container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "store.sugar");

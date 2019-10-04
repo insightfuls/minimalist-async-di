@@ -2,8 +2,10 @@
 
 const expect = require("chai").expect;
 
-const { Container, value, constructor, factory, bean, promise, promiser, seeker, BeanError } =
-		require("../src/container");
+const {
+	Container, value, promise, constructor, factory, collection, bean, promiser, seeker,
+	BeanError
+} = require("../src/container");
 
 describe('Container', function () {
 
@@ -34,6 +36,18 @@ describe('Container', function () {
 			container.register("foo", value("bar"));
 
 			expect(await container.get("foo")).to.equal("bar");
+		});
+
+		it('registers using bean specifier', async function () {
+			container.register(bean("foo"), value("bar"));
+
+			expect(await container.get("foo")).to.equal("bar");
+		});
+
+		it('registers using collection specifier', async function () {
+			container.register(collection("foo"), value({}));
+
+			expect(await container.get("foo")).to.deep.equal({});
 		});
 
 		it('throws registering pre-created bean with dependencies', function () {
@@ -299,6 +313,8 @@ describe('Container', function () {
 			container.register("foo", constructor(ContainerTestBean), seeker("bar"));
 			container.register("bar", value("baz"));
 
+			await container.get("bar");
+
 			const args = (await container.get("foo")).args;
 			expect(args.length).to.equal(1);
 			expect(args[0]()).to.equal("baz");
@@ -400,11 +416,209 @@ describe('Container', function () {
 		});
 
 		it('creates beans once only while pending', async function () {
-			container.register("foo", constructor(ContainerTestBean));
+			let promise;
+
+			container.register("foo", factory(() => {
+				// Retrieve a second time while creating the bean
+				promise = container.get("foo");
+
+				return new ContainerTestBean();
+			}));
+
+			await container.get("foo");
+			await promise;
+
+			expect(ContainerTestBean.numberOfBeans).to.equal(1);
+		});
+
+	});
+
+	describe("collections", function () {
+
+		it('throws registering with invalid specifier', function () {
+			expect(() => {
+				container.register(factory("foo"), value("bar"));
+			}).to.throw(BeanError);
+		});
+
+		it("adds property to created collection", async function () {
+			container.register("foo", value({}));
 
 			await container.get("foo");
 
-			expect(ContainerTestBean.numberOfBeans).to.equal(1);
+			container.register("foo.bar", value("baz"));
+
+			const bean = await container.get("foo");
+			expect(bean.bar).to.equal("baz");
+		});
+
+		it("adds property to pending collection", async function () {
+			let promise1;
+			let promise2;
+
+			container.register("foo", factory(() => {
+				// Get "foo" again; this one still won't have the "bar" property because
+				// "foo" is still not fully created.
+				promise1 = container.get("foo");
+
+				// Register "foo.bar" while "foo" is being created.
+				container.register("foo.bar", factory(async () => {
+					expect((await promise1).bar).to.be.undefined;
+
+					return "baz";
+				}));
+
+				// Get "foo" yet again; this one should have the "bar" property.
+				promise2 = container.get("foo");
+
+				return {};
+			}));
+
+			// We don't expect this one to have the "bar" property because it was retrieved
+			// before "foo" was created.
+			expect((await container.get("foo")).bar).to.be.undefined;
+			expect((await promise2).bar).to.equal("baz");
+		});
+
+		it("adds property to uncreated collection", async function () {
+			container.register("foo", factory(() => ({})));
+			container.register("foo.bar", value("baz"));
+
+			expect((await container.get("foo")).bar).to.equal("baz");
+		});
+
+		it("does not add property to unknown collection", async function () {
+			container.register("foo.bar", value("baz"));
+			container.register("foo", value({}));
+
+			expect((await container.get("foo")).bar).to.be.undefined;
+		});
+
+		it("rejects when created collection is retrieved again on property error",
+				async function () {
+			container.register("foo", value({}));
+
+			await container.get("foo");
+
+			container.register("foo.bar", factory(() => { throw new Error("bummer"); }));
+
+			await container.get("foo").then(
+					() => { throw new Error("promise resolved but expecting rejection"); },
+					(error) => { expect(error.message).to.contain("bummer"); }
+			);
+		});
+
+		it("rejects when uncreated collection is created on property error",
+				async function () {
+			container.register("foo", factory(() => ({})));
+			container.register("foo.bar", factory(() => { throw new Error("bummer"); }));
+
+			await container.get("foo").then(
+					() => { throw new Error("promise resolved but expecting rejection"); },
+					(error) => { expect(error.message).to.contain("bummer"); }
+			);
+		});
+
+		it("sets into a Map", async function () {
+			container.register("foo", value(new Map()));
+			container.register("foo.bar", value("baz"));
+
+			expect((await container.get("foo")).get("bar")).to.equal("baz");
+		});
+
+		it("gets from a Map", async function () {
+			const map = new Map();
+			map.set("bar", "baz");
+
+			container.register("foo", value(map));
+
+			expect((await container.get("foo.bar"))).to.equal("baz");
+		});
+
+		it("sets into a Container", async function () {
+			container.register("foo", value(new Container()));
+			container.register("foo.bar", value("baz"));
+
+			const subcontainer = await container.get("foo");
+			expect(await subcontainer.get("bar")).to.equal("baz");
+		});
+
+		it("gets from a Container", async function () {
+			const subcontainer = new Container();
+			subcontainer.register("bar", value("baz"));
+
+			container.register("foo", value(subcontainer));
+
+			expect(await container.get("foo.bar")).to.equal("baz");
+		});
+
+	});
+
+	describe("custom collections", function () {
+
+		class SynchronousCollection {
+			constructor() {
+				this.store = {};
+			}
+			retrieve(name) {
+				return this.store[name];
+			}
+			put(name, val) {
+				this.store[name] = val;
+			}
+		}
+
+		const synchronousCollectionSpecfier = collection("foo",
+				SynchronousCollection.prototype.retrieve,
+				SynchronousCollection.prototype.put);
+
+		class AsynchronousCollection {
+			constructor() {
+				this.store = {};
+			}
+			async retrieve(name) {
+				return this.store[name];
+			}
+			async put(name, val) {
+				this.store[name] = val;
+			}
+		}
+
+		const asynchronousCollectionSpecfier = collection("foo",
+				AsynchronousCollection.prototype.retrieve,
+				AsynchronousCollection.prototype.put);
+
+		it("sets synchronously into a custom collection", async function () {
+			container.register(synchronousCollectionSpecfier, value(new SynchronousCollection()));
+			container.register("foo.bar", value("baz"));
+
+			expect((await container.get("foo")).retrieve("bar")).to.equal("baz");
+		});
+
+		it("gets synchronously from a custom collection", async function () {
+			const myCollection = new SynchronousCollection();
+			myCollection.put("bar", "baz");
+
+			container.register(synchronousCollectionSpecfier, value(myCollection));
+
+			expect((await container.get("foo.bar"))).to.equal("baz");
+		});
+
+		it("sets asynchronously into a custom collection", async function () {
+			container.register(asynchronousCollectionSpecfier, value(new AsynchronousCollection()));
+			container.register("foo.bar", value("baz"));
+
+			const myCollection = await container.get("foo");
+			expect(await myCollection.retrieve("bar")).to.equal("baz");
+		});
+
+		it("gets asynchronously from a custom collection", async function () {
+			const myCollection = new AsynchronousCollection();
+			await myCollection.put("bar", "baz");
+
+			container.register(asynchronousCollectionSpecfier, value(myCollection));
+
+			expect(await container.get("foo.bar")).to.equal("baz");
 		});
 
 	});

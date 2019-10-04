@@ -11,6 +11,8 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 	* [Registering constructors/classes](#registering-constructors/classes)
 	* [Registering factory functions](#registering-factory-functions)
 	* [Getting beans using dot notation](#getting-beans-using-dot-notation)
+	* [Registering beans using dot notation](#registering-beans-using-dot-notation)
+	* [Custom collections](#custom-collections)
 	* [Using beans as constructors or factories](#using-beans-as-constructors-or-factories)
 	* [Explicit injection](#explicit-injection)
 	* [Asynchronous injection](#asynchronous-injection)
@@ -31,7 +33,7 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 Here's everything you might need.
 
 ```
-const { Container, value, constructor, factory, bean, promise, promiser, seeker } = require("minimalist-async-di");
+const { Container, value, promise, constructor, factory, collection, bean, promiser, seeker } = require("minimalist-async-di");
 ```
 
 ### Create a container
@@ -63,7 +65,6 @@ Here we have a local store, which might be exported from some module, and contai
 
 ```
 const localStore = {
-	sugar: "castor sugar",
 	flour: "self-raising flour"
 };
 ```
@@ -192,12 +193,92 @@ container.registerFactory("butter", createButter, "creamTopMilk");
 
 ### Getting beans using dot notation
 
-You can get properties of beans, or specify them as dependencies, using dot notation. If there is no bean which actually contains the dot in its name, the container will get the property on the "parent bean".
+You can get properties of beans, or specify them as dependencies, using dot notation. If there is no bean which actually contains the dot in its name, the container will get the property on the parent bean (if the parent bean has been registered by the time the property on it is needed).
 
 This registers a `sugar` bean which is created using the `sift` function (defined earlier) as a factory. It receives a dependency which is the `sugar` property from the `store` bean.
 
 ```
 container.register("sugar", factory(sift), "store.sugar");
+```
+
+(The sugar will be added to the store in a moment.)
+
+### Registering beans using dot notation
+
+When a bean is **registered** which contains a dot in its name, if the parent bean **has already been registered**, the new bean will be added as a property on the parent bean.
+
+If the parent bean has already been created when the property is registered, the property will be created immediately (though asynchronously), mutating the parent bean; if an error occurs, you will not find out about it until and unless you retrieve the parent bean again. If the parent bean has not been created (only registered), the property will be registered as its own bean until/unless the parent is retrieved, at which point all its property beans will be created and added to it.
+
+Note that the order of registration matters for this to work. **The parent bean must be registered first.**
+
+Here we stock the `store` with `sugar`.
+
+```
+const castorSugar = "castor sugar";
+```
+
+```
+container.register("store.sugar", value(castorSugar));
+```
+
+### Custom collections
+
+You can use custom getters and setters for bean properties using the `collection` specifier when registering a bean, which may be asynchronous.
+
+By default, the container will:
+
+* recognise `Map` objects and use their `get` and `set` methods
+* recognise `Container` objects and use their `get` and `registerValue` methods
+* otherwise just access object properties normally
+
+So, as far as the container is concerned, we could have created the `store` bean as a `Map`:
+
+```
+const localStore = new Map();
+localStore.set("flour", "self-raising flour");
+```
+
+Or as a `Container`:
+
+```
+const localStore = new Container();
+localStore.register("flour", value("self-raising flour"));
+```
+
+For both of these (and the plain object used originally), we just need to do:
+
+```
+container.register("store", value(localStore));
+```
+
+Or we can use either of the `bean` or `collectiion` specifiers if we prefer:
+
+```
+container.register(bean("store"), value(localStore));
+container.register(collection("store"), value(localStore));
+```
+
+It is **not recommended**, however, if we do need something customised, we can do it. Just use `collection`, providing the bean name, getter, and setter. The getters and setters can be synchronous or asynchronous, and will be called with `this` set to the parent bean.
+
+```
+class Store {
+	constructor() {
+		this.items = {};
+	}
+	purchase(name) {
+		return this.items[name];
+	}
+	stock(name, item) {
+		this.items[name] = item;
+	}
+}
+
+const localStore = new Store();
+localStore.stock("flour", "self-raising flour");
+```
+
+```
+container.register(collection("store", Store.prototype.purchase, Store.prototype.stock), value(localStore));
 ```
 
 ### Using beans as constructors or factories
@@ -427,9 +508,9 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 * `new Container()`
 	* creates a container
 
-* `container.register(name, creator, dependency1, ...)`
+* `container.register(specifier, creator, dependency1, ...)`
 	* registers a bean
-	* the bean is named `name`
+	* the `specifier` is the name of bean to register, or a special specifier (see [Specifiers](#specifiers) below)
 	* the `creator` (see [Creators](#creators) below) specifies how to create the bean
 	* the dependencies are bean names or injectors (see [Injectors](#injectors) below)
 
@@ -453,6 +534,15 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 * `container.get(name)`
 	* gets the bean named `name` asynchronously (returns a promise to the bean)
+
+### Specifiers
+
+* `collection(name, getter, setter)`
+	* The bean is named `name`
+	* Properties are retrieved by calling the function `await getter(prop)` with `this` set to the parent bean
+	* Properties are set by calling the function `await setter(prop, val)` with `this` set to the parent bean
+	* The getters and setters work if they're synchronous or asynchronous
+	* If the beans is a `Map`, `Container` or plain object, you probably don't need to use this, as the container supports those kinds of beans natively
 
 ### Creators
 
@@ -493,6 +583,7 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 Major changes:
 
+* `v3`: Added registration of beans with dot notation, capable of mutating parent beans.
 * `v2`: Removed misguided `initializeWith()/init()` feature. Factory functions are equally effective and don't couple beans to the container.
 * `v1`: Initial version.
 

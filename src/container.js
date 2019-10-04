@@ -12,20 +12,25 @@ exports.Container = class Container {
 		this._beans = new Map();
 	}
 
-	register(name, creator, ...dependencies) {
+	register(specifier, creator, ...dependencies) {
+		if (typeof specifier === 'string') {
+			specifier = new BeanCollection(specifier);
+		}
+
+		if (!(specifier instanceof BeanConfig) || !specifier.specifier) {
+			throw new BeanError("first argument to Container#register must be a bean specifier; " +
+					"use a string for a bean name, or collection()");
+		}
+
 		if (!(creator instanceof BeanConfig) || !creator.creator) {
 			throw new BeanError("second argument to Container#register must be a bean creator; " +
-					"use constructor(), factory() or value()");
+					"use constructor(), factory(), or value()");
 		}
 
 		if (creator instanceof BeanValue) {
 			if (dependencies.length) {
 				throw new BeanError("pre-created beans cannot have dependencies");
 			}
-
-			this._beans.set(name, { bean: creator.value });
-
-			return;
 		}
 
 		if (creator instanceof BeanPromise) {
@@ -33,26 +38,22 @@ exports.Container = class Container {
 				throw new BeanError("promised beans cannot have dependencies");
 			}
 
-			const bean = creator.promise.then(bean => ({ bean }), error => ({ error }));
+			const catchingPromise = creator.promise.then(bean => ({ bean }), error => ({ error }));
 
-			this._pending.set(name, bean);
-			bean.then(bean => {
-				this._beans.set(name, bean);
-				this._pending.delete(name);
-			});
-
-			return;
+			creator = { promise: catchingPromise };
 		}
 
 		dependencies.forEach(dependency => {
 			if (typeof dependency !== 'string' &&
 					(!(dependency instanceof BeanConfig) || !dependency.injector )) {
 				throw new BeanError("dependencies must be bean names or injectors; " +
-						"use strings, bean(), promise(), promiser() or seeker()");
+						"use strings, bean(), promise(), promiser(), or seeker()");
 			}
 		});
 
-		this._registrations.set(name, { ...creator, dependencies });
+		this._registrations.set(specifier.name, { ...specifier, ...creator, dependencies });
+
+		this._maybeRegisterInParentBean(specifier.name);
 	}
 
 	registerValue(name, value) {
@@ -83,6 +84,52 @@ exports.Container = class Container {
 		const bean = (await this._resolveBeanNamed(name, new Set()));
 		if (bean.error) throw bean.error;
 		return bean.bean;
+	}
+
+	_maybeRegisterInParentBean(name) {
+		const lastDot = name.lastIndexOf(".");
+
+		if (lastDot === -1) return;
+
+		const parentName = name.slice(0, lastDot);
+		const childName = name.slice(lastDot + 1);
+
+		if (this._beans.has(parentName)) {
+			const createdBean = this._beans.get(parentName);
+			if (!createdBean.bean || createdBean.error) return;
+			this._beans.delete(parentName);
+			this._pending.set(parentName, Promise.resolve(createdBean));
+		}
+
+		if (this._pending.has(parentName)) {
+			const pendingBean = this._pending.get(parentName);
+			const promisedChildBean = this.get(name);
+			const pendingWithProperty = pendingBean.then(resolvedBean => {
+				if (resolvedBean.bean && !resolvedBean.error) {
+					return promisedChildBean.then(async childBean => {
+						await this._setChild(resolvedBean, childName, childBean);
+						return resolvedBean;
+					}, error => {
+						resolvedBean.error = error;
+						return resolvedBean;
+					});
+				}
+				return resolvedBean;
+			});
+			this._pending.set(parentName, pendingWithProperty);
+			return;
+		}
+
+		if (this._registrations.has(parentName)) {
+			const registration = this._registrations.get(parentName);
+			if (!registration.children) registration.children = [];
+			registration.children.push(childName);
+		}
+	}
+
+	async _setChild(resolvedParent, childName, childBean) {
+		const setter = resolvedParent.setter ? resolvedParent.setter : defaultSetter;
+		setter.call(resolvedParent.bean, childName, childBean);
 	}
 
 	async _resolveBeanNamed(name, ancestors) {
@@ -122,23 +169,29 @@ exports.Container = class Container {
 	async _maybeResolvePropertyOfParentBean(name, ancestors) {
 		const lastDot = name.lastIndexOf(".");
 
-		if (lastDot !== -1) {
-			try {
-				const bean = await this._resolveBeanNamed(name.slice(0, lastDot), ancestors);
+		if (lastDot === -1) return;
 
-				if (bean.error) throw bean.error;
+		try {
+			const parentName = name.slice(0, lastDot);
 
-				return {
-					parent: bean.bean,
-					bean: bean.bean[name.slice(lastDot + 1)]
-				};
-			} catch (error) {
-				if (!(error instanceof BeanError)) {
-					throw error;
-				}
+			const parent = await this._resolveBeanNamed(parentName, ancestors);
 
-				/* fall through */
+			if (parent.error) throw parent.error;
+
+			const propertyName = name.slice(lastDot + 1);
+
+			const getter = parent.getter ? parent.getter : defaultGetter;
+
+			return {
+				parent: parent.bean,
+				bean: await getter.call(parent.bean, propertyName)
+			};
+		} catch (error) {
+			if (!(error instanceof BeanError)) {
+				throw error;
 			}
+
+			/* fall through */
 		}
 	}
 
@@ -152,7 +205,24 @@ exports.Container = class Container {
 					await Promise.all(this._dependencyConfigsFor(registration)
 					.map(config => this._resolveDependency(config, dependencyAncestors)));
 
-			return await this._createBeanFor(registration, resolvedDependencies);
+			const bean = await this._createBeanFor(registration, resolvedDependencies);
+
+			bean.getter = registration.getter;
+			bean.setter = registration.setter;
+
+			if (bean.bean && !bean.error && registration.children) {
+				await Promise.all(registration.children.map(childName => {
+					return this.get(`${name}.${childName}`).then(childBean => {
+						if (bean.error) return;
+						return this._setChild(bean, childName, childBean);
+					}, error => {
+						if (bean.error) return;
+						bean.error = error;
+					});
+				}));
+			}
+
+			return bean;
 		} catch (e) {
 			if (e instanceof BeanError) {
 				throw new BeanError(`while creating bean '${name}':\n${e.message}`);
@@ -203,6 +273,14 @@ exports.Container = class Container {
 	}
 
 	async _createBeanFor(registration, resolvedDependencies) {
+		if (registration.value) {
+			return { bean: registration.value }
+		}
+
+		if (registration.promise) {
+			return await registration.promise;
+		}
+
 		let fn = registration.Constructor || registration.factory;
 
 		if (typeof fn === 'string') {
@@ -229,14 +307,56 @@ exports.Container = class Container {
 
 };
 
+function defaultGetter(name) {
+	if (this instanceof Map || this instanceof exports.Container) {
+		return this.get(name);
+	}
+
+	return this[name];
+}
+
+function defaultSetter(name, value) {
+	if (this instanceof Map) {
+		return this.set(name, value);
+	}
+
+	if (this instanceof exports.Container) {
+		return this.registerValue(name, value);
+	}
+
+	this[name] = value;
+}
+
 /*
  * BeanConfig base class.
  */
 
 class BeanConfig {
 }
+BeanConfig.prototype.specifier = false;
 BeanConfig.prototype.creator = false;
 BeanConfig.prototype.injector = false;
+
+/*
+ * Specifiers
+ */
+
+class BeanCollection extends BeanConfig {
+	constructor(name, getter, setter) {
+		super();
+		this.name = name;
+		this.getter = getter;
+		this.setter = setter;
+	}
+}
+BeanCollection.prototype.specifier = true;
+exports.collection = (name, getter, setter) => new BeanCollection(name, getter, setter);
+
+/*
+ * bean() is both a specifier and an injector that does nothing.
+ */
+
+exports.bean = (name) => name;
 
 /*
  * value() and promise() are both creators and injectors.
@@ -291,8 +411,6 @@ exports.factory = (factory) => new BeanFactory(factory);
 /*
  * Other injectors.
  */
-
-exports.bean = (name) => name;
 
 class BeanPromiser extends BeanConfig {
 	constructor(name) {
