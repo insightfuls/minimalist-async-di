@@ -456,6 +456,9 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 * `value(val)`
 	* Creator which uses the value `val` itself as the bean
 
+* `promise(pmise)`
+	* Creator which expects the promise `pmise` to resolve to the bean
+	
 * `constructor(Ctor)`
 	* Creator which creates the bean by calling `new Ctor(dependency1, ...)`
 	* If `Ctor` is a string, the bean with that name will be used as the constructor
