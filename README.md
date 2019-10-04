@@ -356,7 +356,7 @@ class MeringueFactory {
 ```
 
 ```
-container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "sugar");
+container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "store.sugar");
 ```
 
 Note how the `MeringueFactory` itself has a factory injected (`createEgg`) to assist it to create new instances.
