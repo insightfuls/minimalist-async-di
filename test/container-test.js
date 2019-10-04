@@ -148,10 +148,28 @@ describe('Container', function () {
 			);
 		});
 
+		it('rejects when bean is retrieved if bean promise rejects', async function () {
+			container.register("foo", promise(Promise.reject(new Error("bummer"))));
+
+			await container.get("foo").then(
+					() => { throw new Error("promise resolved but expecting rejection"); },
+					(error) => { expect(error.message).to.equal("bummer"); }
+			);
+		});
+
 		it('gets property of bean', async function () {
 			container.register("foo", value({ bar: "baz" }));
 
 			expect(await container.get("foo.bar")).to.equal("baz");
+		});
+
+		it('rejects when bean property is retrieved if bean promise rejects', async function () {
+			container.register("foo", promise(Promise.reject(new Error("bummer"))));
+
+			await container.get("foo.bar").then(
+					() => { throw new Error("promise resolved but expecting rejection"); },
+					(error) => { expect(error.message).to.equal("bummer"); }
+			);
 		});
 
 		it('does not bind function of bean', async function () {
@@ -195,6 +213,16 @@ describe('Container', function () {
 			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
 		});
 
+		it('rejects when bean factory promise rejects', async function () {
+			container.register("foo", promise(Promise.reject(new Error("bummer"))));
+			container.register("bar", factory("foo"));
+
+			await container.get("bar").then(
+					() => { throw new Error("promise resolved but expecting rejection"); },
+					(error) => { expect(error.message).to.contain("bummer"); }
+			);
+		});
+
 	});
 
 	describe('dependency injection', function () {
@@ -224,6 +252,16 @@ describe('Container', function () {
 			container.register("bar", value("baz"));
 
 			expect((await container.get("foo")).args).to.deep.equal(["baz"]);
+		});
+
+		it('rejects when bean is injected if bean promise rejects', async function () {
+			container.register("foo", promise(Promise.reject(new Error("bummer"))));
+			container.register("bar", factory(bean => bean), "foo");
+
+			await container.get("bar").then(
+					() => { throw new Error("promise resolved but expecting rejection"); },
+					(error) => { expect(error.message).to.contain("bummer"); }
+			);
 		});
 
 		it('provides value using value injector', async function () {

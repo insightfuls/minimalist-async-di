@@ -33,7 +33,7 @@ exports.Container = class Container {
 				throw new BeanError("promised beans cannot have dependencies");
 			}
 
-			const bean = creator.promise.then(bean => ({ bean }));
+			const bean = creator.promise.then(bean => ({ bean }), error => ({ error }));
 
 			this._pending.set(name, bean);
 			bean.then(bean => {
@@ -80,7 +80,9 @@ exports.Container = class Container {
 	}
 
 	async get(name) {
-		return (await this._resolveBeanNamed(name, new Set())).bean;
+		const bean = (await this._resolveBeanNamed(name, new Set()));
+		if (bean.error) throw bean.error;
+		return bean.bean;
 	}
 
 	async _resolveBeanNamed(name, ancestors) {
@@ -124,13 +126,15 @@ exports.Container = class Container {
 			try {
 				const bean = await this._resolveBeanNamed(name.slice(0, lastDot), ancestors);
 
+				if (bean.error) throw bean.error;
+
 				return {
 					parent: bean.bean,
 					bean: bean.bean[name.slice(lastDot + 1)]
 				};
-			} catch (e) {
-				if (!(e instanceof BeanError)) {
-					throw e;
+			} catch (error) {
+				if (!(error instanceof BeanError)) {
+					throw error;
 				}
 
 				/* fall through */
@@ -203,13 +207,17 @@ exports.Container = class Container {
 
 		if (typeof fn === 'string') {
 			const resolvedFn = resolvedDependencies.pop();
+			if (resolvedFn.error) throw resolvedFn.error;
 			fn = resolvedFn.bean;
 			if (registration.factory && resolvedFn.parent) {
 				fn = fn.bind(resolvedFn.parent)
 			}
 		}
 
-		const dependencies = resolvedDependencies.map(dependency => dependency.bean);
+		const dependencies = resolvedDependencies.map(dependency => {
+			if (dependency.error) throw dependency.error;
+			return dependency.bean;
+		});
 
 		if (registration.Constructor) {
 			return { bean: new fn(...dependencies) };

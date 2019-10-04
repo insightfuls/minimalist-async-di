@@ -273,7 +273,7 @@ class Pudding {
 ```
 container.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"));
 ```
-	
+
 The `bean` injector was also used above, for clarity. It's exactly the same as just giving the bean name.
 
 ### Seeker injection
@@ -461,7 +461,7 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 * `promise(pmise)`
 	* Creator which expects the promise `pmise` to resolve to the bean
-	
+
 * `constructor(Ctor)`
 	* Creator which creates the bean by calling `new Ctor(dependency1, ...)`
 	* If `Ctor` is a string, the bean with that name will be used as the constructor
