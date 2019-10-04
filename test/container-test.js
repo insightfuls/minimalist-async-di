@@ -3,7 +3,7 @@
 const expect = require("chai").expect;
 
 const {
-	Container, value, promise, constructor, factory, collection, bean, promiser, seeker,
+	Container, value, promise, constructor, factory, bean, collection, promiser, seeker,
 	BeanError
 } = require("../src/container");
 

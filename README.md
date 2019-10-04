@@ -22,6 +22,7 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 	* [Scope creation](#scope-creation)
 * [API](#api)
 	* [Container](#container)
+	* [Specifiers](#specifiers)
 	* [Creators](#creators)
 	* [Injectors](#injectors)
 * [Version history](#version-history)
@@ -33,7 +34,7 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 Here's everything you might need.
 
 ```
-const { Container, value, promise, constructor, factory, collection, bean, promiser, seeker } = require("minimalist-async-di");
+const { Container, value, promise, constructor, factory, bean, collection, promiser, seeker } = require("minimalist-async-di");
 ```
 
 ### Create a container
@@ -537,12 +538,16 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 ### Specifiers
 
+* `bean(name)`
+	* Specifier which specifies a normal bean named `name`
+	* You can just provide the `name` as the specifier without using `bean()` for the same effect
+
 * `collection(name, getter, setter)`
-	* The bean is named `name`
+	* Specifier that specifies a collection bean named `name`
 	* Properties are retrieved by calling the function `await getter(prop)` with `this` set to the parent bean
 	* Properties are set by calling the function `await setter(prop, val)` with `this` set to the parent bean
 	* The getters and setters work if they're synchronous or asynchronous
-	* If the beans is a `Map`, `Container` or plain object, you probably don't need to use this, as the container supports those kinds of beans natively
+	* If the bean is a `Map`, `Container` or plain object, you probably don't need to use this, as the container supports those kinds of beans natively
 
 ### Creators
 
