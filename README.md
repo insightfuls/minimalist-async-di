@@ -430,8 +430,8 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 * `container.register(name, creator, dependency1, ...)`
 	* registers a bean
 	* the bean is named `name`
-	* the `creator` (see Creators below) specifies how to create the bean
-	* the dependencies are bean names
+	* the `creator` (see [Creators](#creators) below) specifies how to create the bean
+	* the dependencies are bean names or injectors (see [Injectors](#injectors) below)
 
 * `container.registerValue(name, val)`
 	* syntax sugar for `container.register(name, value(val))`
