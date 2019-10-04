@@ -1,5 +1,9 @@
 "use strict";
 
+/*
+ * Container.
+ */
+
 exports.Container = class Container {
 
 	constructor() {
@@ -23,6 +27,14 @@ exports.Container = class Container {
 
 			return;
 		}
+
+		dependencies.forEach(dependency => {
+			if (typeof dependency !== 'string' &&
+					(!(dependency instanceof BeanConfig) || !dependency.injector )) {
+				throw new BeanError("dependencies must be bean names or injectors; " +
+						"use strings, bean(), promise(), promiser() or seeker()");
+			}
+		});
 
 		this._registrations.set(name, { ...creator, dependencies });
 	}
@@ -113,8 +125,8 @@ exports.Container = class Container {
 			const dependencyAncestors = new Set(ancestors).add(name);
 
 			const resolvedDependencies =
-					await Promise.all(this._dependencyNamesFor(registration)
-					.map(dependency => this._resolveBeanNamed(dependency, dependencyAncestors)));
+					await Promise.all(this._dependencyConfigsFor(registration)
+					.map(config => this._resolveDependency(config, dependencyAncestors)));
 
 			return await this._createBeanFor(registration, resolvedDependencies);
 		} catch (e) {
@@ -126,17 +138,44 @@ exports.Container = class Container {
 		}
 	}
 
-	_dependencyNamesFor(registration) {
-		const dependencyNames = registration.dependencies;
+	_dependencyConfigsFor(registration) {
+		const dependencyConfigs = registration.dependencies;
 
 		if (typeof registration.Constructor === 'string') {
-			dependencyNames.push(registration.Constructor);
+			dependencyConfigs.push(registration.Constructor);
 		}
 		if (typeof registration.factory === 'string') {
-			dependencyNames.push(registration.factory);
+			dependencyConfigs.push(registration.factory);
 		}
 
-		return dependencyNames;
+		return dependencyConfigs;
+	}
+
+	_resolveDependency(config, ancestors) {
+		if (typeof config === 'string') {
+			return this._resolveBeanNamed(config, ancestors);
+		}
+
+		if (config instanceof BeanValue) {
+			return { bean: config.value };
+		}
+
+		if (config instanceof BeanPromise) {
+			return { bean: this._resolveBeanNamed(config.name, ancestors).then(bean => bean.bean) };
+		}
+
+		if (config instanceof BeanPromiser) {
+			return { bean: () => {
+				return this._resolveBeanNamed(config.name, new Set()).then(bean => bean.bean);
+			}};
+		}
+
+		if (config instanceof BeanSeeker) {
+			return { bean: () => {
+				const bean = this._beans.get(config.name);
+				return bean ? bean.bean : undefined;
+			}};
+		}
 	}
 
 	async _createBeanFor(registration, resolvedDependencies) {
@@ -162,9 +201,18 @@ exports.Container = class Container {
 
 };
 
+/*
+ * BeanConfig base class.
+ */
+
 class BeanConfig {
 }
 BeanConfig.prototype.creator = false;
+BeanConfig.prototype.injector = false;
+
+/*
+ * value() is both a creator and an injector.
+ */
 
 class BeanValue extends BeanConfig {
 	constructor(value) {
@@ -173,7 +221,12 @@ class BeanValue extends BeanConfig {
 	}
 }
 BeanValue.prototype.creator = true;
+BeanValue.prototype.injector = true;
 exports.value = (value) => new BeanValue(value);
+
+/*
+ * Other creators.
+ */
 
 class BeanConstructor extends BeanConfig {
 	constructor(Constructor) {
@@ -193,11 +246,46 @@ class BeanFactory extends BeanConfig {
 BeanFactory.prototype.creator = true;
 exports.factory = (factory) => new BeanFactory(factory);
 
-function BeanError(message) {
+/*
+ * Other injectors.
+ */
+
+exports.bean = (name) => name;
+
+class BeanPromise extends BeanConfig {
+	constructor(name) {
+		super();
+		this.name = name;
+	}
+}
+BeanPromise.prototype.injector = true;
+exports.promise = (name) => new BeanPromise(name);
+
+class BeanPromiser extends BeanConfig {
+	constructor(name) {
+		super();
+		this.name = name;
+	}
+}
+BeanPromiser.prototype.injector = true;
+exports.promiser = (name) => new BeanPromiser(name);
+
+class BeanSeeker extends BeanConfig {
+	constructor(name) {
+		super();
+		this.name = name;
+	}
+}
+BeanSeeker.prototype.injector = true;
+exports.seeker = (name) => new BeanSeeker(name);
+
+/*
+ * Error class.
+ */
+
+const BeanError = exports.BeanError = function BeanError(message) {
 	this.message = message;
 	this.stack = (new Error()).stack;
-}
+};
 BeanError.prototype = Object.create(Error.prototype);
 BeanError.prototype.constructor = BeanError;
-
-exports.BeanError = BeanError;

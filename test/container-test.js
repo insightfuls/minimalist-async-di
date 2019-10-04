@@ -2,7 +2,8 @@
 
 const expect = require("chai").expect;
 
-const { Container, constructor, factory, value, BeanError } = require("../src/container");
+const { Container, value, constructor, factory, bean, promise, promiser, seeker, BeanError } =
+		require("../src/container");
 
 describe('Container', function () {
 
@@ -20,6 +21,12 @@ describe('Container', function () {
 		it('throws registering with invalid creator', function () {
 			expect(() => {
 				container.register("foo", "bar");
+			}).to.throw(BeanError);
+		});
+
+		it('throws registering with injector as creator', function () {
+			expect(() => {
+				container.register("foo", promise("bar"));
 			}).to.throw(BeanError);
 		});
 
@@ -168,21 +175,80 @@ describe('Container', function () {
 
 	describe('dependency injection', function () {
 
-		it('provides argument to constructor', async function () {
+		it('throws registering with creator as injector', function () {
+			expect(() => {
+				container.register("foo", factory(() => {}), factory("bar"));
+			}).to.throw(BeanError);
+		});
+
+		it('provides bean to constructor', async function () {
 			container.register("foo", constructor(ContainerTestBean), "bar");
 			container.register("bar", value("baz"));
 
 			expect((await container.get("foo")).args).to.deep.equal(["baz"]);
 		});
 
-		it('provides argument to factory function', async function () {
+		it('provides bean to factory function', async function () {
 			container.register("foo", factory((arg) => new ContainerTestBean(arg)), "bar");
 			container.register("bar", value("baz"));
 
 			expect((await container.get("foo")).args).to.deep.equal(["baz"]);
 		});
 
-		it('rejects when cyclic dependency', async function () {
+		it('provides bean using bean injector', async function () {
+			container.register("foo", constructor(ContainerTestBean), bean("bar"));
+			container.register("bar", value("baz"));
+
+			expect((await container.get("foo")).args).to.deep.equal(["baz"]);
+		});
+
+		it('provides value using value injector', async function () {
+			container.register("foo", constructor(ContainerTestBean), value("bar"));
+
+			expect((await container.get("foo")).args).to.deep.equal(["bar"]);
+		});
+
+		it('provides promise using promise injector', async function () {
+			container.register("foo", constructor(ContainerTestBean), promise("bar"));
+			container.register("bar", value("baz"));
+
+			const args = (await container.get("foo")).args;
+			expect(args.length).to.equal(1);
+			expect(await args[0]).to.equal("baz");
+		});
+
+		it('provides asynchronous factory using promiser injector', async function () {
+			container.register("foo", constructor(ContainerTestBean), promiser("bar"));
+			container.register("bar", value("baz"));
+
+			const args = (await container.get("foo")).args;
+			expect(args.length).to.equal(1);
+			expect(await args[0]()).to.equal("baz");
+		});
+
+		it('provides synchronous factory using seeker injector', async function () {
+			container.register("foo", constructor(ContainerTestBean), seeker("bar"));
+			container.register("bar", value("baz"));
+
+			const args = (await container.get("foo")).args;
+			expect(args.length).to.equal(1);
+			expect(args[0]()).to.equal("baz");
+		});
+
+		it('seeker returns undefined when bean not created', async function () {
+			container.register("foo", constructor(ContainerTestBean), seeker("bar"));
+			container.register("bar", factory(() => "baz"));
+
+			const args = (await container.get("foo")).args;
+			expect(args.length).to.equal(1);
+			expect(args[0]()).to.be.undefined;
+		});
+
+	});
+
+	describe('cyclic dependencies', function () {
+
+		it('rejects injecting beans with cyclic dependency', async function () {
 			container.register("foo", constructor(ContainerTestBean), "bar");
 			container.register("bar", constructor(ContainerTestBean), "baz");
 			container.register("baz", constructor(ContainerTestBean), "foo");
@@ -191,6 +257,64 @@ describe('Container', function () {
 					() => { throw new Error("promise resolved but expecting rejection"); },
 					(error) => { expect(error).to.be.an.instanceOf(BeanError); }
 			);
+		});
+
+		it('injected promise rejects with cyclic dependency', async function () {
+			container.register("foo", constructor(ContainerTestBean), promise("bar"));
+			container.register("bar", constructor(ContainerTestBean), promise("baz"));
+			container.register("baz", constructor(ContainerTestBean), promise("foo"));
+
+			const foo = await container.get("foo");
+			const bar = await container.get("bar");
+			const baz = await container.get("baz");
+
+			// The order of retrieval determines which promise will reject
+			expect(await foo.args[0]).to.equal(bar);
+			expect(await bar.args[0]).to.equal(baz);
+			await baz.args[0].then(
+					() => { throw new Error("promise resolved but expecting rejection"); },
+					(error) => { expect(error).to.be.an.instanceOf(BeanError); }
+			);
+		});
+
+		it('succeeds with cyclic dependency with promiser first', async function () {
+			container.register("foo", constructor(ContainerTestBean), promiser("bar"));
+			container.register("bar", constructor(ContainerTestBean), bean("foo"));
+
+			const foo = await container.get("foo");
+			const barInFoo = await foo.args[0]();
+			expect(barInFoo).to.not.be.undefined;
+
+			const bar = await container.get("bar");
+			expect(barInFoo).to.equal(bar);
+		});
+
+		it('succeeds with cyclic dependency with promiser second', async function () {
+			container.register("foo", constructor(ContainerTestBean), bean("bar"));
+			container.register("bar", constructor(ContainerTestBean), promiser("foo"));
+
+			const foo = await container.get("foo");
+			const bar = await container.get("bar");
+			expect((await bar.args[0]())).to.equal(foo);
+		});
+
+		it('succeeds with cyclic dependency with seeker first', async function () {
+			container.register("foo", constructor(ContainerTestBean), seeker("bar"));
+			container.register("bar", constructor(ContainerTestBean), bean("foo"));
+
+			const foo = await container.get("foo");
+			expect(foo.args[0]()).to.be.undefined;
+
+			const bar = await container.get("bar");
+			expect(foo.args[0]()).to.equal(bar);
+		});
+
+		it('succeeds with cyclic dependency with seeker second', async function () {
+			container.register("foo", constructor(ContainerTestBean), bean("bar"));
+			container.register("bar", constructor(ContainerTestBean), seeker("foo"));
+
+			const foo = await container.get("foo");
+			expect((await container.get("bar")).args[0]()).to.equal(foo);
 		});
 
 	});

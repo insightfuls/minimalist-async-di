@@ -1,28 +1,22 @@
 "use strict";
 
-const { Container, value, constructor, factory } = require(".");
+const { Container, value, constructor, factory, bean, promise, promiser, seeker } = require(".");
 
 /*
  * Components, which would ordinarily be exported from other modules.
  */
 
 const localStore = {
-	sugar: "sugar",
-	flour: "flour"
+	sugar: "castor sugar",
+	flour: "self-raising flour"
 };
 
-class Pudding {
-	constructor(butter, sugar, milk, flour) {
-		Object.assign(this, { butter, sugar, milk, flour });
-		this.cooked = false;
+class Mixer {
+	constructor(butter, sugar, egg, milk, flour) {
+		Object.assign(this, { butter, sugar, egg, milk, flour });
 	}
-	cook() {
-		if (this.cooked) throw new Error("already cooked");
-		this.cooked = true;
-		return `baked ${this.getMixture()}`;
-	}
-	getMixture() {
-		return `mixture of ${this.butter}, ${this.sugar}, ${this.milk}, and ${this.flour}`
+	async getMixture() {
+		return `mixture of ${this.butter}, ${this.sugar}, ${this.egg}, ${this.milk}, and ${this.flour}`;
 	}
 }
 
@@ -68,6 +62,62 @@ function createButter(creamTopMilk) {
 	.then(cream => `butter churned from ${cream}`);
 }
 
+class Oven {
+	constructor(type) {
+		this.type = type;
+	}
+	async preheat() {
+		return `preheated ${this.type} oven`;
+	}
+}
+
+class Pudding {
+	constructor(oven, promisedMixture, getMeringue) {
+		this.product = Promise.all([promisedMixture, oven.preheat()]).then(([mixture, oven]) => {
+			return `${mixture}, baked in ${oven}`;
+		});
+		this.getMeringue = getMeringue;
+		this.eater = null;
+	}
+	topWithMeringue() {
+		const baseProduct = this.product;
+		this.product = this.getMeringue().then(meringue => {
+			return baseProduct.then(product => `${product}, topped with ${meringue}`);
+		});
+		return this;
+	}
+	async eat(person) {
+		if (this.eater) throw new Error(`already eaten by ${this.eater}`);
+		this.eater = person;
+		return (await this.product) + `, eaten by ${person}`;
+	}
+}
+
+class Chicken {
+	constructor(maybeGetCreateEgg) {
+		this.origin = maybeGetCreateEgg() ? "an egg" : "nothing";
+	}
+	async lay() {
+		return `egg laid by chicken created from ${this.origin}`;
+	}
+}
+
+function createCreateEgg(chicken) {
+	return async function createEgg() {
+		return chicken.lay();
+	}
+}
+
+class MeringueFactory {
+	constructor(createEgg, sugar) {
+		this.createEgg = createEgg;
+		this.sugar = sugar;
+	}
+	async create() {
+		return `meringue made from whipped white of ${await this.createEgg()}, and ${this.sugar}`;
+	}
+}
+
 /*
  * The container.
  */
@@ -75,17 +125,60 @@ function createButter(creamTopMilk) {
 const container = new Container();
 
 container.register("store", value(localStore));
-container.register("pudding", constructor(Pudding), "butter", "sugar", "milk", "flour");
-container.register("flour", factory(createFlour), "store");
-container.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
-container.register("butter", factory(createButter), "creamTopMilk");
-container.register("milk", factory("creamTopMilk.getMilk"));
-container.register("sugar", factory(sift), "store.sugar");
+container.register("chicken", constructor(Chicken), seeker("createEgg"));
+container.register("createEgg", factory(createCreateEgg), "chicken");
+container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "store.sugar");
+container.register("createCookingScope", factory(createCreateCookingScope), value(container));
 
-container
-.get("pudding")
-.then((pudding) => pudding.cook())
-.then(console.log, console.error)
-.then(() => container.get("pudding"))
-.then((pudding) => pudding.cook())
+function createCreateCookingScope(parent) {
+	return async function createCookingScope() {
+		const reuseFromParent = factory(parent.get.bind(parent));
+		const parentBean = value;
+
+		const child = new Container();
+
+		child.register("store", reuseFromParent, parentBean("store"));
+		child.register("meringueFactory", reuseFromParent, parentBean("meringueFactory"));
+		child.register("parentCreateEgg", value(await parent.get("createEgg")));
+		child.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
+		child.register("flour", factory(createFlour), "store");
+		child.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
+		child.register("butter", factory(createButter), "creamTopMilk");
+		child.register("milk", factory("creamTopMilk.getMilk"));
+		child.register("mixture", factory("mixer.getMixture"));
+		child.register("sugar", factory(sift), "store.sugar");
+		child.register("oven", constructor(Oven), value("moderate"));
+		child.register("pudding", constructor(Pudding),
+				bean("oven"), promise("mixture"), promiser("meringue"));
+		child.register("chicken", constructor(Chicken), seeker("parentCreateEgg"));
+		child.register("createEgg", factory(createCreateEgg), "chicken");
+		child.register("eggForMixture", factory("createEgg"));
+		child.register("meringue", factory("meringueFactory.create"));
+
+		return child;
+	};
+}
+
+/*
+ * Use it.
+ */
+
+// Try to eat the same pudding twice (from the same scope)
+
+const promisedScope = container.get("createCookingScope").then(create => create());
+
+promisedScope.then(scope => scope.get("pudding"))
+.then(pudding => pudding.topWithMeringue().eat("Trillian"))
+.then(console.log, console.error);
+
+promisedScope.then(scope => scope.get("pudding"))
+.then(pudding => pudding.eat("Zaphod"))
+.then(console.log, console.error);
+
+// Create a different scope to bake another pudding
+
+container.get("createCookingScope")
+.then(create => create())
+.then(scope => scope.get("pudding"))
+.then(pudding => pudding.eat("Ben"))
 .then(console.log, console.error);

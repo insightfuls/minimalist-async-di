@@ -1,6 +1,6 @@
 # minimalist-async-di
 
-Minimalist asynchronous IoC/dependency injection container.
+Asynchronous IoC/dependency injection container with a minimalist API, but which packs a punch.
 
 * [Tutorial](#tutorial)
 	* [Import](#import)
@@ -11,10 +11,16 @@ Minimalist asynchronous IoC/dependency injection container.
 	* [Registering factory functions](#registering-factory-functions)
 	* [Getting beans using dot notation](#getting-beans-using-dot-notation)
 	* [Using beans as constructors or factories](#using-beans-as-constructors-or-factories)
+	* [Explicit injection](#explicit-injection)
+	* [Asynchronous injection](#asynchronous-injection)
+	* [Seeker injection](#seeker-injection)
 	* [All beans are singletons](#all-beans-are-singletons)
+	* [Repeated creation](#repeated-creation)
+	* [Scope creation](#scope-creation)
 * [API](#api)
 	* [Container](#container)
 	* [Creators](#creators)
+	* [Injectors](#injectors)
 * [Version history](#version-history)
 
 ## Tutorial
@@ -24,7 +30,7 @@ Minimalist asynchronous IoC/dependency injection container.
 Here's everything you might need.
 
 ```
-const { Container, value, constructor, factory } = require("minimalist-async-di");
+const { Container, value, constructor, factory, bean, promise, promiser, seeker } = require("minimalist-async-di");
 ```
 
 ### Create a container
@@ -37,12 +43,11 @@ const container = new Container();
 
 ### Getting beans
 
-Getting beans is always asynchronous (returns a Promise). Suppose we have registered a bean called "pudding". We can retrieve it and cook it as follows.
+Getting beans is always asynchronous (returns a Promise). Suppose we have registered a bean called "pudding". We can retrieve it and eat it as follows.
 
 ```
-container
-.get("pudding")
-.then((pudding) => pudding.cook());
+container.get("pudding")
+.then(pudding => pudding.eat("Ben"));
 ```
 
 We will actually register this bean in a moment. (In reality, of course, it needs to be registered before it is retrieved.)
@@ -57,8 +62,8 @@ Here we have a local store, which might be exported from some module, and contai
 
 ```
 const localStore = {
-	sugar: "sugar",
-	flour: "flour"
+	sugar: "castor sugar",
+	flour: "self-raising flour"
 };
 ```
 
@@ -77,35 +82,29 @@ container.register("store", value(localStore));
 
 We can register constructor functions (or ES6 classes) using the `register` method with the `constructor` creator.
 
-Here is a `Pudding` class which might be exported from some module; it requires various ingredients to be supplied to its constructor:
+Here is a `Mixer` class which might be exported from some module; it requires various ingredients to be supplied to its constructor:
 
 ```
-class Pudding {
-	constructor(butter, sugar, milk, flour) {
-		Object.assign(this, { butter, sugar, milk, flour });
-		this.cooked = false;
+class Mixer {
+	constructor(butter, sugar, egg, milk, flour) {
+		Object.assign(this, { butter, sugar, egg, milk, flour });
 	}
-	cook() {
-		if (this.cooked) throw new Error("already cooked");
-		this.cooked = true;
-		return `baked ${this.getMixture()}`;
-	}
-	getMixture() {
-		return `mixture of ${this.butter}, ${this.sugar}, ${this.milk}, and ${this.flour}`
+	async getMixture() {
+		return `mixture of ${this.butter}, ${this.sugar}, ${this.egg}, ${this.milk}, and ${this.flour}`;
 	}
 }
 ```
 
-Here we register a bean named "pudding", which is created using the `Pudding` constructor, and has a number of other named beans as dependencies. The dependencies will be registered later (which is fine to do, even in real code).
+Here we register a bean named "mixer", which is created using the `Mixer` constructor, and has a number of other named beans as dependencies. The dependencies will be registered later (which is fine to do, even in real code).
 
 ```
-container.register("pudding", constructor(Pudding), "butter", "sugar", "milk", "flour");
+container.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
 ```
 
 `registerClass` and `registerConstructor` are syntax sugar for `register` with `constructor`, so we could have used either of these if we preferred:
 
-* `container.registerConstructor("pudding", Pudding, "butter", "sugar", "milk", "flour");`
-* `container.registerClass("pudding", Pudding, "butter", "sugar", "milk", "flour");`
+* `container.registerConstructor("mixer", Mixer, "butter", "sugar", "eggForMixture", "milk", "flour");`
+* `container.registerClass("mixer", Mixer, "butter", "sugar", "eggForMixture", "milk", "flour");`
 
 ### Registering factory functions
 
@@ -173,6 +172,7 @@ container.register("butter", factory(createButter), "creamTopMilk");
 `registerFactory` is syntax sugar for `register` with `factory`, so we could have used this if we preferred:
 
 ```
+container.registerFactory("flour", createFlour, "store");
 container.registerFactory("creamTopMilk", createPasteurizedCreamTopMilk);
 container.registerFactory("butter", createButter, "creamTopMilk");
 ```
@@ -193,36 +193,219 @@ You can use a bean itself as a constructor or factory to create another bean. Ju
 
 If you use a property of a bean (using dot notation) then the function will be called as a method, with `this` set to the bean.
 
-Here we register a `milk` bean which is created using the `getMilk` method on the `creamTopMilk` bean.
+Here we register a `milk` bean which is created using the `getMilk` method on the `creamTopMilk` bean, and a `mixture` bean which is created using the `getMixture` method on the `mixer` bean.
 
 ```
 container.register("milk", factory("creamTopMilk.getMilk"));
+container.register("mixture", factory("mixer.getMixture"));
+```
+
+### Explicit injection
+
+Sometimes you don't want to inject another bean, but just want to explicitly inject a specific value. You can do this using the `value` injector for a dependency.
+
+We inject the type of oven this way. The string `"moderate"` is passed to the constructor, not a bean named `moderate`.
+
+```
+class Oven {
+	constructor(type) {
+		this.type = type;
+	}
+	async preheat() {
+		return `preheated ${this.type} oven`;
+	}
+}
+```
+
+```
+container.register("oven", constructor(Oven), value("moderate"));
+```
+
+### Asynchronous injection
+
+Usually constructors and factories receive their dependencies synchronously.
+
+However, it is possible to provide a promise for the dependency using `promise`, or an asynchronous factory function for the dependency using `promiser`. Some use cases for this are:
+
+* `promise`: The dependency is received asynchronously, so you can begin other processing while waiting for it to arrive.
+* `promiser`: You only call the factory *if* you need to use the dependency. If you don't need it, it is never retrieved (perhaps never even created) so it can be used for dependencies which might not be needed in practice.
+* `promiser`: You only call the factory *when* you need to use the dependency. This gives you a tool to use to avoid cyclic dependencies (which, as much as we try to avoid them, sometimes do seem like the right solution). As long as there is a `promiser` somewhere in the cycle, and the `promiser` isn't called as part of creating the bean (but deferred until it is needs to be used), the beans will be able to be created.
+
+This `Pudding` class uses both kinds of asynchronous injection. It receives the mixture asynchronously so that the oven can be preheated while the mixture is being prepared, and it only gets meringue if the user actually wants it (calls the `topWithMeringue()` method).
+
+```
+class Pudding {
+	constructor(oven, promisedMixture, getMeringue) {
+		this.product = Promise.all([promisedMixture, oven.preheat()]).then(([mixture, oven]) => {
+			return `${mixture}, baked in ${oven}`;
+		});
+		this.getMeringue = getMeringue;
+		this.eater = null;
+	}
+	topWithMeringue() {
+		const baseProduct = this.product;
+		this.product = this.getMeringue().then(meringue => {
+			return baseProduct.then(product => `${product}, topped with ${meringue}`);
+		});
+		return this;
+	}
+	async eat(person) {
+		if (this.eater) throw new Error(`already eaten by ${this.eater}`);
+		this.eater = person;
+		return (await this.product) + `, eaten by ${person}`;
+	}
+}
+```
+
+```
+container.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"));
+```
+	
+The `bean` injector was also used above, for clarity. It's exactly the same as just giving the bean name.
+
+### Seeker injection
+
+Seeker injection injects a synchronous factory function which can be called to obtain a dependency. Because the injected factory function is synchronous, but bean creation is asynchronous, **it is not guaranteed to succeed**. In fact, it will only succeed if the bean **has already been created when the factory function is called**. Even if the bean *could* be created synchronously, unless it *has* been created, the factory function will return `undefined`. That is why it is called seeker injection: it seeks the bean, but it might not find it.
+
+Using seeker injection is **not recommended**, however it is provided for completeness. It can be used with existing components which expect to be provided with a synchronous factory function. Like `promiser` injection, it can also be used to break dependency cycles; hopefully the dependency has been created by the time you call the factory function (you might need to put in some effort to ensure this).
+
+Here is a chicken and egg example that explicitly handles the `undefined` case:
+
+```
+class Chicken {
+	constructor(maybeGetCreateEgg) {
+		this.origin = maybeGetCreateEgg() ? "an egg" : "nothing";
+	}
+	async lay() {
+		return `egg laid by chicken created from ${this.origin}`;
+	}
+}
+```
+
+```
+container.register("chicken", constructor(Chicken), seeker("createEgg"));
 ```
 
 ### All beans are singletons
 
-All beans are singletons.
+All beans in the container are singletons, meaning they are created the first time they are retrieved, but later retrievals return the previously created bean.
 
-If you get the pudding a second time, you will get the one you prepared earlier, and be told that it's already cooked.
+So if you get the pudding a second time, you will get the one you prepared earlier, and be told that it's already eaten.
 
 ```
-container
-.get("pudding")
-.then((pudding) => pudding.cook())
+container.get("pudding")
+.then(pudding => pudding.topWithMeringue().eat("Trillian"))
 .then(console.log, console.error)
-.then(() => container.get("pudding"))
-.then((pudding) => pudding.cook())
+
+container.get("pudding")
+.then(pudding => pudding.eat("Zaphod"))
 .then(console.log, console.error);
 ```
 
 ```
-baked mixture of butter churned from cream separated from pasteurized cream-top milk, sifted sugar, milk separated from pasteurized cream-top milk, and sifted flour
-Error: already cooked
+Error: already eaten by Trillian
+    at ...
+mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken from nothing, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, topped with meringue made from whipped white of egg laid by chicken from nothing, and castor sugar, eaten by Trillian
 ```
 
-* If you need to generate new instances repeatedly, use a bean which is itself a factory.
+Notice how due to the asynchronous processing, we actually receive the error that the pudding has been eaten before the pudding is, in fact, eaten. That's because it's flagged as eaten before the cooking and topping with meringue have completed.
 
-* If you need to repeatedly create scopes with managed beans, use a bean which is a factory which produces containers.
+### Repeated creation
+
+If you need to create new instances repeatedly, use a bean which is itself a factory.
+
+This could be a factory function like this `createEgg` function. Note how a "meta-factory" is used to create the factory.
+
+```
+function createCreateEgg(chicken) {
+	return async function createEgg() {
+		return chicken.lay();
+	}
+}
+```
+
+```
+container.register("createEgg", factory(createCreateEgg), "chicken");
+```
+
+Alternatively, it could be a class-style factory, like this `MeringueFactory`.
+
+```
+class MeringueFactory {
+	constructor(createEgg, sugar) {
+		this.createEgg = createEgg;
+		this.sugar = sugar;
+	}
+	async create() {
+		return `meringue made from whipped white of ${await this.createEgg()}, and ${this.sugar}`;
+	}
+}
+```
+
+```
+container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "sugar");
+```
+
+Note how the `MeringueFactory` itself has a factory injected (`createEgg`) to assist it to create new instances.
+
+You can also use factory beans to create other beans:
+
+```
+container.register("eggForMixture", factory("createEgg"));
+container.register("meringue", factory("meringueFactory.create"));
+```
+
+### Scope creation
+
+If you need to repeatedly create scopes with managed beans, use a bean which is a factory which produces containers. It can be convenient to provide the parent container as a dependency to such a factory so it can use the `get` method to "reuse" beans from the parent container in the child container.
+
+Suppose the `store`, `chicken`, `createEgg` and `meringueFactory` beans are "global", registered in the parent container. You could register a factory which creates child containers and registers beans like below. Notice how the `store` and `meringueFactory` beans are reused by registering `parent.get` as a factory function, so they will be created on demand, whereas we get the parent's `createEgg` bean when we instantiate the scope so it is inserted pre-created into the child scope.
+
+```
+container.register("createCookingScope", factory(createCreateCookingScope), value(container));
+
+function createCreateCookingScope(parent) {
+	return async function createCookingScope() {
+		const reuseFromParent = factory(parent.get.bind(parent));
+		const parentBean = value;
+
+		const child = new Container();
+
+		child.register("store", reuseFromParent, parentBean("store"));
+		child.register("meringueFactory", reuseFromParent, parentBean("meringueFactory"));
+		child.register("parentCreateEgg", value(await parent.get("createEgg")));
+		child.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
+		child.register("flour", factory(createFlour), "store");
+		child.register("creamTopMilk", factory(createPasteurizedCreamTopMilk));
+		child.register("butter", factory(createButter), "creamTopMilk");
+		child.register("milk", factory("creamTopMilk.getMilk"));
+		child.register("mixture", factory("mixer.getMixture"));
+		child.register("sugar", factory(sift), "store.sugar");
+		child.register("oven", constructor(Oven), value("moderate"));
+		child.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"));
+		child.register("chicken", constructor(Chicken), seeker("parentCreateEgg"));
+		child.register("createEgg", factory(createCreateEgg), "chicken");
+		child.register("eggForMixture", factory("createEgg"));
+		child.register("meringue", factory("meringueFactory.create"));
+
+		return child;
+	};
+}
+```
+
+You can create and use the scope like this:
+
+```
+container.get("createCookingScope")
+.then(create => create())
+.then(scope => scope.get("pudding"))
+.then(pudding => pudding.eat("Ben"))
+.then(console.log, console.error);
+```
+
+```
+mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken from an egg, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, eaten by Ben
+```
 
 ## API
 
@@ -235,7 +418,7 @@ Error: already cooked
 	* registers a bean
 	* the bean is named `name`
 	* the `creator` (see Creators below) specifies how to create the bean
-	* the dependencies are names
+	* the dependencies are bean names
 
 * `container.registerValue(name, val)`
 	* syntax sugar for `container.register(name, value(val))`
@@ -253,7 +436,7 @@ Error: already cooked
 	* syntax sugar for `container.register(name, factory(ftory), dependency1, ...)`
 
 * `container.get(name)`
-	* gets a bean asynchronously (returns a promise to the bean)
+	* gets the bean named `name` asynchronously (returns a promise to the bean)
 
 ### Creators
 
@@ -261,13 +444,31 @@ Error: already cooked
 	* Creator which uses the value `val` itself as the bean
 
 * `constructor(Ctor)`
-	* Creator which constructs the bean by calling `new Ctor(dependency1, ...)`
+	* Creator which creates the bean by calling `new Ctor(dependency1, ...)`
 	* If `Ctor` is a string, the bean with that name will be used as the constructor
 
 * `factory(ftory)`
-	* Creator which constructs the bean by calling `await ftory(dependency1, ...)`
+	* Creator which creates the bean by calling `await ftory(dependency1, ...)`
 	* This works for both synchronous and asynchronous factory functions
 	* If `ftory` is a string, the bean with that name will be used as the factory
+
+### Injectors
+
+* `value(val)`
+	* Injector which injects the value `val` itself
+
+* `bean(name)`
+	* Injector which injects the bean named `name`
+	* You can just provide the `name` as a dependency without using `bean()` for the same effect
+
+* `promise(name)`
+	* Injector which injects a promise for the bean named `name`
+
+* `promiser(name)`
+	* Injector which injects an asynchronous factory function (which returns a promise) for the bean named `name`
+
+* `seeker(name)`
+	* Injector which injects a synchronous factory function for the bean named `name`, which will however return `undefined` if the bean does not exist when the function is called
 
 ## Version history
 
