@@ -143,7 +143,7 @@ function createCreateCookingScope(parent) {
 		child.register("creamTopMilk", promise((new CreamTopMilk()).pasteurize()));
 		child.register("butter", factory(createButter), "creamTopMilk");
 		child.register("milk", factory("creamTopMilk.getMilk"));
-		child.register("mixture", factory("mixer.getMixture"));
+		child.register("mixture", factory(bean("mixer.getMixture")));
 		child.register("sugar", factory(sift), "store.sugar");
 		child.register("oven", constructor(Oven), value("moderate"));
 		child.register("pudding", constructor(Pudding),

@@ -284,7 +284,7 @@ container.register(collection("store", Store.prototype.purchase, Store.prototype
 
 ### Using beans as constructors or factories
 
-You can use a bean itself as a constructor or factory to create another bean. Just give the name of the bean instead of an actual constructor or factory function.
+You can use a bean itself as a constructor or factory to create another bean. Just give the name of the bean instead of an actual constructor or factory function. If you prefer, wrap the name in `bean()` for clarity.
 
 If you use a property of a bean (using dot notation) then the function will be called as a method, with `this` set to the bean.
 
@@ -292,7 +292,7 @@ Here we register a `milk` bean which is created using the `getMilk` method on th
 
 ```
 container.register("milk", factory("creamTopMilk.getMilk"));
-container.register("mixture", factory("mixer.getMixture"));
+container.register("mixture", factory(bean("mixer.getMixture")));
 ```
 
 ### Explicit injection
@@ -474,7 +474,7 @@ function createCreateCookingScope(parent) {
 		child.register("creamTopMilk", promise((new CreamTopMilk()).pasteurize());
 		child.register("butter", factory(createButter), "creamTopMilk");
 		child.register("milk", factory("creamTopMilk.getMilk"));
-		child.register("mixture", factory("mixer.getMixture"));
+		child.register("mixture", factory(bean("mixer.getMixture")));
 		child.register("sugar", factory(sift), "store.sugar");
 		child.register("oven", constructor(Oven), value("moderate"));
 		child.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"));
@@ -515,26 +515,17 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 * the `creator` (see [Creators](#creators) below) specifies how to create the bean
 * the dependencies are bean names or injectors (see [Injectors](#injectors) below)
 
-`container.registerValue(name, val)`
-* syntax sugar for `container.register(name, value(val))`
-
-`container.registerBean(name, val)`
-* syntax sugar for `container.register(name, value(val))`
-
-`container.registerPromise(name, pmise)`
-* syntax sugar for `container.register(name, promise(pmise))`
-
-`container.registerConstructor(name, Ctor, dependency1, ...)`
-* syntax sugar for `container.register(name, constructor(Ctor), dependency1, ...)`
-
-`container.registerClass(name, Ctor, dependency1, ...)`
-* syntax sugar for `container.register(name, constructor(Ctor), dependency1, ...)`
-
-`container.registerFactory(name, ftory, dependency1, ...)`
-* syntax sugar for `container.register(name, factory(ftory), dependency1, ...)`
-
 `container.get(name)`
 * gets the bean named `name` asynchronously (returns a promise to the bean)
+
+### Syntax sugar for `container.register()`
+
+* `container.registerValue(name, val)`: `container.register(name, value(val))`
+* `container.registerBean(name, val)`: `container.register(name, value(val))`
+* `container.registerPromise(name, pmise)`: `container.register(name, promise(pmise))`
+* `container.registerConstructor(name, Ctor, dep1, ...)`: `container.register(name, constructor(Ctor), dep1, ...)`
+* `container.registerClass(name, Ctor, dep1, ...)`: `container.register(name, constructor(Ctor), dep1, ...)`
+* `container.registerFactory(name, ftory, dep1, ...)`: `container.register(name, factory(ftory), dep1, ...)`
 
 ### Specifiers
 
@@ -559,12 +550,12 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 `constructor(Ctor)`
 * Creator which creates the bean by calling `new Ctor(dependency1, ...)`
-* If `Ctor` is a string, the bean with that name will be used as the constructor
+* If `Ctor` is a string, the bean with that name will be used as the constructor; you can use `constructor(bean(name))` for clarity if you prefer
 
 `factory(ftory)`
 * Creator which creates the bean by calling `await ftory(dependency1, ...)`
 * This works for both synchronous and asynchronous factory functions
-* If `ftory` is a string, the bean with that name will be used as the factory
+* If `ftory` is a string, the bean with that name will be used as the factory; you can use `factory(bean(name))` for clarity if you prefer
 
 ### Injectors
 
