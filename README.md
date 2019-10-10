@@ -20,6 +20,7 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 	* [All beans are singletons](#all-beans-are-singletons)
 	* [Repeated creation](#repeated-creation)
 	* [Scope creation](#scope-creation)
+	* [Replacing registrations](#replacing-registrations)
 * [API](#api)
 	* [Container](#container)
 	* [Specifiers](#specifiers)
@@ -400,7 +401,7 @@ container.get("pudding")
 ```
 Error: already eaten by Trillian
     at ...
-mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken from nothing, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, topped with meringue made from whipped white of egg laid by chicken from nothing, and castor sugar, eaten by Trillian
+mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken created from nothing, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, topped with meringue made from whipped white of egg laid by chicken created from nothing, and castor sugar, eaten by Trillian
 ```
 
 Notice how due to the asynchronous processing, we actually receive the error that the pudding has been eaten before the pudding is, in fact, eaten. That's because it's flagged as eaten before the cooking and topping with meringue have completed.
@@ -499,7 +500,29 @@ container.get("createCookingScope")
 ```
 
 ```
-mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken from an egg, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, eaten by Ben
+mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken created from an egg, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, eaten by Ben
+```
+
+### Replacing registrations
+
+If you register a bean with the same name as an already-registered one, the existing one is replaced without any error. This allows you to override beans with stubs or mocks for testing.
+
+Note that it will only work if the bean has not already been created. Also, collections will 'lose' any children registered with dot notation (only children registered after the new parent registration will be added to the new parent).
+
+Here's an example where we replace the `meringueFactory` with a fake one.
+
+```
+container.register("meringueFactory", value({ create() { return "fake meringue"; } }));
+```
+
+```
+container.get("pudding")
+.then(pudding => pudding.topWithMeringue().eat("Trillian"))
+.then(console.log, console.error)
+```
+
+```
+mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken created from nothing, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, topped with fake meringue, eaten by Trillian
 ```
 
 ## API
@@ -514,6 +537,7 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 * the `specifier` is the name of bean to register, or a special specifier (see [Specifiers](#specifiers) below)
 * the `creator` (see [Creators](#creators) below) specifies how to create the bean
 * the dependencies are bean names or injectors (see [Injectors](#injectors) below)
+* can also be used to replace an existing registration (prior to the bean being created)
 
 `container.get(name)`
 * gets the bean named `name` asynchronously (returns a promise to the bean)
