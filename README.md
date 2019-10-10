@@ -530,17 +530,17 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 ### Container
 
 `new Container()`
-* creates a container
+* Creates a container
 
 `container.register(specifier, creator, dependency1, ...)`
-* registers a bean
-* the `specifier` is the name of bean to register (which could be a property on another already-registered bean, using dot notation), or a special specifier (see [Specifiers](#specifiers) below)
-* the `creator` (see [Creators](#creators) below) specifies how to create the bean
-* the dependencies are bean names (or properties on other beans, using dot notation) or injectors (see [Injectors](#injectors) below)
-* can also be used to replace an existing registration (prior to the bean being created)
+* Registers a bean
+* The `specifier` is the name of bean to register (which could be a property on another already-registered bean, using dot notation), or a special specifier (see [Specifiers](#specifiers) below)
+* The `creator` (see [Creators](#creators) below) specifies how to create the bean
+* The dependencies are bean names (or properties on other beans, using dot notation) or injectors (see [Injectors](#injectors) below)
+* Can also be used to replace an existing registration (prior to the bean being created)
 
 `container.get(name)`
-* gets the bean named `name` asynchronously (returns a promise to the bean)
+* Gets the bean named `name` asynchronously (returns a promise to the bean)
 
 ### Syntax sugar for `container.register()`
 
