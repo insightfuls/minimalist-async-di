@@ -436,7 +436,8 @@ exports.seeker = (name) => new BeanSeeker(name);
 
 const BeanError = exports.BeanError = function BeanError(message) {
 	this.message = message;
-	this.stack = (new Error()).stack;
+	this.stack = (new Error(message)).stack;
 };
 BeanError.prototype = Object.create(Error.prototype);
+BeanError.prototype.name = "BeanError";
 BeanError.prototype.constructor = BeanError;
