@@ -534,9 +534,9 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 `container.register(specifier, creator, dependency1, ...)`
 * registers a bean
-* the `specifier` is the name of bean to register, or a special specifier (see [Specifiers](#specifiers) below)
+* the `specifier` is the name of bean to register (which could be a property on another already-registered bean, using dot notation), or a special specifier (see [Specifiers](#specifiers) below)
 * the `creator` (see [Creators](#creators) below) specifies how to create the bean
-* the dependencies are bean names or injectors (see [Injectors](#injectors) below)
+* the dependencies are bean names (or properties on other beans, using dot notation) or injectors (see [Injectors](#injectors) below)
 * can also be used to replace an existing registration (prior to the bean being created)
 
 `container.get(name)`
@@ -555,6 +555,7 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 `bean(name)`
 * Specifier which specifies a normal bean named `name`
+* It can be a property on another already-registered bean, using dot notation
 * You can just provide the `name` as the specifier without using `bean()` for the same effect
 
 `collection(name, getter, setter)`
@@ -588,6 +589,7 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 `bean(name)`
 * Injector which injects the bean named `name`
+* Alternatively, it could be a property on another bean, using dot notation
 * You can just provide the `name` as a dependency without using `bean()` for the same effect
 
 `promise(name)`
