@@ -51,6 +51,10 @@ exports.Container = class Container {
 			}
 		});
 
+		if (this._beans.has(specifier.name) || this._pending.has(specifier.name)) {
+			throw new BeanError("cannot replace already-created bean");
+		}
+
 		this._registrations.set(specifier.name, { ...specifier, ...creator, dependencies });
 
 		this._maybeRegisterInParentBean(specifier.name);
@@ -224,11 +228,13 @@ exports.Container = class Container {
 
 			return bean;
 		} catch (e) {
-			if (e instanceof BeanError) {
-				throw new BeanError(`while creating bean '${name}':\n${e.message}`);
-			}
+			const message = `while creating bean '${name}':\n${e.message}`;
 
-			throw new Error(`while creating bean '${name}':\n${e.message}`);
+			const toThrow = (e instanceof BeanError) ? new BeanError(message) : new Error(message);
+
+			toThrow.stack += "\n\n" + e.stack;
+
+			throw toThrow;
 		}
 	}
 

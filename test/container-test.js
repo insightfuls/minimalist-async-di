@@ -106,6 +106,35 @@ describe('Container', function () {
 			expect(await container.get("bar")).to.be.an.instanceOf(ContainerTestBean);
 		});
 
+		it('overrides registered bean', async function () {
+			container.register("foo", value("foo"));
+			container.register("foo", value("bar"));
+
+			expect(await container.get("foo")).to.equal("bar");
+		});
+
+		it('throws overriding created bean', async function () {
+			container.register("foo", value("foo"));
+
+			expect(await container.get("foo")).to.equal("foo");
+
+			expect(() => {
+				container.register("foo", value("bar"));
+			}).to.throw(BeanError);
+		});
+
+		it('throws overriding pending bean', async function () {
+			container.register("foo", factory(async () => {
+				expect(() => {
+					container.register("foo", value("bar"));
+				}).to.throw(BeanError);
+
+				return "foo";
+			}));
+
+			expect(await container.get("foo")).to.equal("foo");
+		});
+
 	});
 
 	describe('registration syntax sugar', function () {
