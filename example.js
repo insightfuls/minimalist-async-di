@@ -83,7 +83,7 @@ class Pudding {
 		});
 		return this;
 	}
-	async eat(person) {
+	async serveTo(person) {
 		if (this.eater) throw new Error(`already eaten by ${this.eater}`);
 		this.eater = person;
 		return (await this.product) + `, eaten by ${person}`;
@@ -161,16 +161,16 @@ function createCreateCookingScope(parent) {
  * Use it.
  */
 
-// Try to eat the same pudding twice (from the same scope)
+// Try to serve the same pudding twice (from the same scope)
 
 const promisedScope = container.get("createCookingScope").then(create => create());
 
 promisedScope.then(scope => scope.get("pudding"))
-.then(pudding => pudding.topWithMeringue().eat("Trillian"))
+.then(pudding => pudding.topWithMeringue().serveTo("Trillian"))
 .then(console.log, console.error);
 
 promisedScope.then(scope => scope.get("pudding"))
-.then(pudding => pudding.eat("Zaphod"))
+.then(pudding => pudding.serveTo("Zaphod"))
 .then(console.log, console.error);
 
 // Create a different scope to bake another pudding
@@ -178,5 +178,5 @@ promisedScope.then(scope => scope.get("pudding"))
 container.get("createCookingScope")
 .then(create => create())
 .then(scope => scope.get("pudding"))
-.then(pudding => pudding.eat("Ben"))
+.then(pudding => pudding.serveTo("Ben"))
 .then(console.log, console.error);

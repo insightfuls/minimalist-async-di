@@ -48,11 +48,11 @@ const container = new Container();
 
 ### Getting beans
 
-Getting beans is always asynchronous (returns a Promise). Suppose we have registered a bean called "pudding". We can retrieve it and eat it as follows.
+Getting beans is always asynchronous (returns a Promise). Suppose we have registered a bean called "pudding". We can retrieve it and serve it as follows.
 
 ```
 container.get("pudding")
-.then(pudding => pudding.eat("Ben"));
+.then(pudding => pudding.serveTo("Ben"));
 ```
 
 We will actually register this bean in a moment. (In reality, of course, it needs to be registered before it is retrieved.)
@@ -345,7 +345,7 @@ class Pudding {
 		});
 		return this;
 	}
-	async eat(person) {
+	async serveTo(person) {
 		if (this.eater) throw new Error(`already eaten by ${this.eater}`);
 		this.eater = person;
 		return (await this.product) + `, eaten by ${person}`;
@@ -390,11 +390,11 @@ So if you get the pudding a second time, you will get the one you prepared earli
 
 ```
 container.get("pudding")
-.then(pudding => pudding.topWithMeringue().eat("Trillian"))
+.then(pudding => pudding.topWithMeringue().serveTo("Trillian"))
 .then(console.log, console.error)
 
 container.get("pudding")
-.then(pudding => pudding.eat("Zaphod"))
+.then(pudding => pudding.serveTo("Zaphod"))
 .then(console.log, console.error);
 ```
 
@@ -495,7 +495,7 @@ You can create and use the scope like this:
 container.get("createCookingScope")
 .then(create => create())
 .then(scope => scope.get("pudding"))
-.then(pudding => pudding.eat("Ben"))
+.then(pudding => pudding.serveTo("Ben"))
 .then(console.log, console.error);
 ```
 
@@ -517,7 +517,7 @@ container.register("meringueFactory", value({ create() { return "fake meringue";
 
 ```
 container.get("pudding")
-.then(pudding => pudding.topWithMeringue().eat("Trillian"))
+.then(pudding => pudding.topWithMeringue().serveTo("Trillian"))
 .then(console.log, console.error)
 ```
 
