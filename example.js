@@ -1,6 +1,7 @@
 "use strict";
 
-const { Container, value, constructor, factory, bean, promise, promiser, seeker } = require(".");
+const { Container, value, promise, constructor, factory, bean, bound, promiser, seeker } =
+		require(".");
 
 /*
  * Components, which would ordinarily be exported from other modules.
@@ -59,6 +60,15 @@ function createButter(creamTopMilk) {
 	.then(cream => `butter churned from ${cream}`);
 }
 
+class JamFactory {
+	constructor() {
+		this.jam = "jam";
+	}
+	async getJam() {
+		return this.jam;
+	}
+}
+
 class Oven {
 	constructor(type) {
 		this.type = type;
@@ -69,17 +79,19 @@ class Oven {
 }
 
 class Pudding {
-	constructor(oven, promisedMixture, getMeringue) {
+	constructor(oven, promisedMixture, getMeringue, getJam) {
 		this.product = Promise.all([promisedMixture, oven.preheat()]).then(([mixture, oven]) => {
 			return `${mixture}, baked in ${oven}`;
 		});
 		this.getMeringue = getMeringue;
+		this.getJam = getJam;
 		this.eater = null;
 	}
-	topWithMeringue() {
+	addToppings() {
 		const baseProduct = this.product;
-		this.product = this.getMeringue().then(meringue => {
-			return baseProduct.then(product => `${product}, topped with ${meringue}`);
+		this.product = Promise.all([this.getMeringue(), this.getJam()])
+		.then(([meringue, jam]) => {
+			return baseProduct.then(product => `${product}, topped with ${meringue}, and ${jam}`);
 		});
 		return this;
 	}
@@ -126,6 +138,7 @@ container.register("store.sugar", value(castorSugar));
 container.register("chicken", constructor(Chicken), seeker("createEgg"));
 container.register("createEgg", factory(createCreateEgg), "chicken");
 container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "store.sugar");
+container.register("jamFactory", constructor(JamFactory));
 container.register("createCookingScope", factory(createCreateCookingScope), value(container));
 
 function createCreateCookingScope(parent) {
@@ -137,6 +150,7 @@ function createCreateCookingScope(parent) {
 
 		child.register("store", reuseFromParent, parentBean("store"));
 		child.register("meringueFactory", reuseFromParent, parentBean("meringueFactory"));
+		child.register("jamFactory", reuseFromParent, parentBean("jamFactory"));
 		child.register("parentCreateEgg", value(await parent.get("createEgg")));
 		child.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
 		child.register("flour", factory(createFlour), "store");
@@ -147,7 +161,7 @@ function createCreateCookingScope(parent) {
 		child.register("sugar", factory(sift), "store.sugar");
 		child.register("oven", constructor(Oven), value("moderate"));
 		child.register("pudding", constructor(Pudding),
-				bean("oven"), promise("mixture"), promiser("meringue"));
+				bean("oven"), promise("mixture"), promiser("meringue"), bound("jamFactory.getJam"));
 		child.register("chicken", constructor(Chicken), seeker("parentCreateEgg"));
 		child.register("createEgg", factory(createCreateEgg), "chicken");
 		child.register("eggForMixture", factory("createEgg"));
@@ -166,7 +180,7 @@ function createCreateCookingScope(parent) {
 const promisedScope = container.get("createCookingScope").then(create => create());
 
 promisedScope.then(scope => scope.get("pudding"))
-.then(pudding => pudding.topWithMeringue().serveTo("Trillian"))
+.then(pudding => pudding.addToppings().serveTo("Trillian"))
 .then(console.log, console.error);
 
 promisedScope.then(scope => scope.get("pudding"))

@@ -14,6 +14,7 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 	* [Registering beans using dot notation](#registering-beans-using-dot-notation)
 	* [Custom collections](#custom-collections)
 	* [Using beans as constructors or factories](#using-beans-as-constructors-or-factories)
+	* [Bound injection](#bound-injection)
 	* [Explicit injection](#explicit-injection)
 	* [Asynchronous injection](#asynchronous-injection)
 	* [Seeker injection](#seeker-injection)
@@ -35,7 +36,7 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 Here's everything you might need.
 
 ```
-const { Container, value, promise, constructor, factory, bean, collection, promiser, seeker } = require("minimalist-async-di");
+const { Container, value, promise, constructor, factory, bean, collection, bound, promiser, seeker } = require("minimalist-async-di");
 ```
 
 ### Create a container
@@ -296,6 +297,48 @@ container.register("milk", factory("creamTopMilk.getMilk"));
 container.register("mixture", factory(bean("mixer.getMixture")));
 ```
 
+### Bound injection
+
+Ordinarily when you inject a property of a bean into another bean, the property value is simply injected. If it is a function, when it is called, `this` will be set (or be unset) according to the context of the call. The caller is also free to use `.call()` or `.apply()` to set `this`.
+
+However, that isn't always what you want. Sometimes, just like when you use a property of a bean as a factory, you want to treat it as a method, with `this` set to the bean containing the property. Use the `bound` injector for this. It calls `.bind()` to lock the value of `this` for all calls.
+
+This `JamFactory` can be used to demonstrate this:
+
+```
+class JamFactory {
+	constructor() {
+		this.jam = "jam";
+	}
+	async getJam() {
+		return this.jam;
+	}
+}
+```
+
+```
+container.register("jamFactory", constructor(JamFactory));
+```
+
+Here's a `Toast` class which uses it.
+
+```
+class Toast {
+	constructor(getJam) {
+		this.getJam = getJam;
+	}
+	make() {
+		return `toast with ${this.getJam()}`;
+	}
+}
+```
+
+```
+container.register("toast", constructor(Toast), bound("jamFactory.getJam"));
+```
+
+Without using `bound`, the call to `this.getJam()` in the `make()` method would result in `this` being set to the `toast` bean, because `getJam` has been installed as a method on that bean in the `Toast` constructor. However, because `bound` was used, `getJam` has `this` locked to the `jamFactory` bean, and it works as expected.
+
 ### Explicit injection
 
 Sometimes you don't want to inject another bean, but just want to explicitly inject a specific value. You can do this using the `value` injector for a dependency.
@@ -327,21 +370,23 @@ However, it is possible to provide a promise for the dependency using `promise`,
 * `promiser`: You only call the factory *if* you need to use the dependency. If you don't need it, it is never retrieved (perhaps never even created) so it can be used for dependencies which might not be needed in practice.
 * `promiser`: You only call the factory *when* you need to use the dependency. This gives you a tool to use to avoid cyclic dependencies (which, as much as we try to avoid them, sometimes do seem like the right solution). As long as there is a `promiser` somewhere in the cycle, and the `promiser` isn't called as part of creating the bean (but deferred until it needs to be used), the beans will be able to be created.
 
-This `Pudding` class uses both kinds of asynchronous injection. It receives the mixture asynchronously so that the oven can be preheated while the mixture is being prepared, and it only gets meringue if the user actually wants it (calls the `topWithMeringue()` method).
+This `Pudding` class uses both kinds of asynchronous injection. It receives the mixture asynchronously so that the oven can be preheated while the mixture is being prepared, and it only gets meringue if the user actually wants it (calls the `addToppings()` method).
 
 ```
 class Pudding {
-	constructor(oven, promisedMixture, getMeringue) {
+	constructor(oven, promisedMixture, getMeringue, getJam) {
 		this.product = Promise.all([promisedMixture, oven.preheat()]).then(([mixture, oven]) => {
 			return `${mixture}, baked in ${oven}`;
 		});
 		this.getMeringue = getMeringue;
+		this.getJam = getJam;
 		this.eater = null;
 	}
-	topWithMeringue() {
+	addToppings() {
 		const baseProduct = this.product;
-		this.product = this.getMeringue().then(meringue => {
-			return baseProduct.then(product => `${product}, topped with ${meringue}`);
+		this.product = Promise.all([this.getMeringue(), this.getJam()])
+		.then(([meringue, jam]) => {
+			return baseProduct.then(product => `${product}, topped with ${meringue}, and ${jam}`);
 		});
 		return this;
 	}
@@ -354,10 +399,10 @@ class Pudding {
 ```
 
 ```
-container.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"));
+container.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"), bound("jamFactory.getJam"));
 ```
 
-The `bean` injector was also used above, for clarity. It's exactly the same as just giving the bean name.
+The `bean` injector was also used above, for clarity; it's exactly the same as just giving the bean name. Also note the use of the `bound` injector so that `getJam` executes with `this` set correctly (to the `jamFactory`, not to the `pudding`).
 
 ### Seeker injection
 
@@ -390,7 +435,7 @@ So if you get the pudding a second time, you will get the one you prepared earli
 
 ```
 container.get("pudding")
-.then(pudding => pudding.topWithMeringue().serveTo("Trillian"))
+.then(pudding => pudding.addToppings().serveTo("Trillian"))
 .then(console.log, console.error)
 
 container.get("pudding")
@@ -401,7 +446,7 @@ container.get("pudding")
 ```
 Error: already eaten by Trillian
     at ...
-mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken created from nothing, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, topped with meringue made from whipped white of egg laid by chicken created from nothing, and castor sugar, eaten by Trillian
+mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken created from nothing, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, topped with meringue made from whipped white of egg laid by chicken created from nothing, and castor sugar, and jam, eaten by Trillian
 ```
 
 Notice how due to the asynchronous processing, we actually receive the error that the pudding has been eaten before the pudding is, in fact, eaten. That's because it's flagged as eaten before the cooking and topping with meringue have completed.
@@ -469,6 +514,7 @@ function createCreateCookingScope(parent) {
 
 		child.register("store", reuseFromParent, parentBean("store"));
 		child.register("meringueFactory", reuseFromParent, parentBean("meringueFactory"));
+		child.register("jamFactory", reuseFromParent, parentBean("jamFactory"));
 		child.register("parentCreateEgg", value(await parent.get("createEgg")));
 		child.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
 		child.register("flour", factory(createFlour), "store");
@@ -478,7 +524,7 @@ function createCreateCookingScope(parent) {
 		child.register("mixture", factory(bean("mixer.getMixture")));
 		child.register("sugar", factory(sift), "store.sugar");
 		child.register("oven", constructor(Oven), value("moderate"));
-		child.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"));
+		child.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"), bound("jamFactory.getJam"));
 		child.register("chicken", constructor(Chicken), seeker("parentCreateEgg"));
 		child.register("createEgg", factory(createCreateEgg), "chicken");
 		child.register("eggForMixture", factory("createEgg"));
@@ -517,7 +563,7 @@ container.register("meringueFactory", value({ create() { return "fake meringue";
 
 ```
 container.get("pudding")
-.then(pudding => pudding.topWithMeringue().serveTo("Trillian"))
+.then(pudding => pudding.addToppings().serveTo("Trillian"))
 .then(console.log, console.error)
 ```
 
@@ -591,6 +637,9 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 * Injector which injects the bean named `name`
 * Alternatively, it could be a property on another bean, using dot notation
 * You can just provide the `name` as a dependency without using `bean()` for the same effect
+
+`bound(property)`
+* Injector which injects a method on another bean (specified using dot notation for `property`), bound to the bean; `bound("foo.bar")` injects `foo.bar.bind(foo)`
 
 `promise(name)`
 * Injector which injects a promise for the bean named `name`

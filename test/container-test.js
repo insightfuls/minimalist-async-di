@@ -3,7 +3,7 @@
 const expect = require("chai").expect;
 
 const {
-	Container, value, promise, constructor, factory, bean, collection, promiser, seeker,
+	Container, value, promise, constructor, factory, bean, collection, bound, promiser, seeker,
 	BeanError
 } = require("../src/container");
 
@@ -305,6 +305,24 @@ describe('Container', function () {
 					() => { throw new Error("promise resolved but expecting rejection"); },
 					(error) => { expect(error.message).to.contain("bummer"); }
 			);
+		});
+
+		it('does not bind function ordinarily', async function () {
+			container.register("bar", value({ baz: function() { return this; } }));
+
+			container.register("foo", constructor(ContainerTestBean), "bar.baz");
+
+			const fn = (await container.get("foo")).args[0]
+			expect(fn()).to.be.undefined;
+		});
+
+		it('provides bound function (method) using bound injector', async function () {
+			container.register("bar", value({ baz: function() { return this; } }));
+
+			container.register("foo", constructor(ContainerTestBean), bound("bar.baz"));
+
+			const fn = (await container.get("foo")).args[0]
+			expect(fn()).to.not.be.undefined;
 		});
 
 		it('provides value using value injector', async function () {

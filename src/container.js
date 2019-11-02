@@ -228,7 +228,7 @@ exports.Container = class Container {
 
 			return bean;
 		} catch (e) {
-			const message = `while creating bean '${name}':\n${e.message}`;
+			const message = `while creating bean '${name}':\n${e.name}: ${e.message}`;
 
 			const toThrow = (e instanceof BeanError) ? new BeanError(message) : new Error(message);
 
@@ -245,7 +245,7 @@ exports.Container = class Container {
 			dependencyConfigs.push(registration.Constructor);
 		}
 		if (typeof registration.factory === 'string') {
-			dependencyConfigs.push(registration.factory);
+			dependencyConfigs.push(new BeanBound(registration.factory));
 		}
 
 		return dependencyConfigs;
@@ -254,6 +254,13 @@ exports.Container = class Container {
 	_resolveDependency(config, ancestors) {
 		if (typeof config === 'string') {
 			return this._resolveBeanNamed(config, ancestors);
+		}
+
+		if (config instanceof BeanBound) {
+			return this._resolveBeanNamed(config.name, ancestors).then(bean => {
+				if (bean.error) return bean;
+				return { bean: bean.bean.bind(bean.parent) };
+			});
 		}
 
 		if (config instanceof BeanValue) {
@@ -280,7 +287,7 @@ exports.Container = class Container {
 
 	async _createBeanFor(registration, resolvedDependencies) {
 		if (registration.value) {
-			return { bean: registration.value }
+			return { bean: registration.value };
 		}
 
 		if (registration.promise) {
@@ -293,9 +300,6 @@ exports.Container = class Container {
 			const resolvedFn = resolvedDependencies.pop();
 			if (resolvedFn.error) throw resolvedFn.error;
 			fn = resolvedFn.bean;
-			if (registration.factory && resolvedFn.parent) {
-				fn = fn.bind(resolvedFn.parent)
-			}
 		}
 
 		const dependencies = resolvedDependencies.map(dependency => {
@@ -417,6 +421,15 @@ exports.factory = (factory) => new BeanFactory(factory);
 /*
  * Other injectors.
  */
+
+class BeanBound extends BeanConfig {
+	constructor(name) {
+		super();
+		this.name = name;
+	}
+}
+BeanBound.prototype.injector = true;
+exports.bound = (name) => new BeanBound(name);
 
 class BeanPromiser extends BeanConfig {
 	constructor(name) {
