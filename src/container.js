@@ -55,7 +55,12 @@ exports.Container = class Container {
 			throw new BeanError("cannot replace already-created bean");
 		}
 
-		this._registrations.set(specifier.name, { ...specifier, ...creator, dependencies });
+		this._registrations.set(specifier.name, {
+			...specifier,
+			...creator,
+			dependencies,
+			children: []
+		});
 
 		this._maybeRegisterInParentBean(specifier.name);
 	}
@@ -91,9 +96,9 @@ exports.Container = class Container {
 	}
 
 	_maybeRegisterInParentBean(name) {
-		const [parentName, childName] = this._identifyParentAndProperty(name);
+		const [parentName, propertyName] = this._identifyParentAndProperty(name);
 
-		if (!parentName || !childName) return;
+		if (!parentName || !propertyName) return;
 
 		if (this._beans.has(parentName)) {
 			const createdBean = this._beans.get(parentName);
@@ -108,7 +113,7 @@ exports.Container = class Container {
 			const pendingWithProperty = pendingBean.then(resolvedBean => {
 				if (resolvedBean.bean && !resolvedBean.error) {
 					return promisedChildBean.then(async childBean => {
-						await this._setChild(resolvedBean, childName, childBean);
+						await this._setChild(resolvedBean, propertyName, childBean);
 						return resolvedBean;
 					}, error => {
 						resolvedBean.error = error;
@@ -123,8 +128,7 @@ exports.Container = class Container {
 
 		if (this._registrations.has(parentName)) {
 			const registration = this._registrations.get(parentName);
-			if (!registration.children) registration.children = [];
-			registration.children.push(childName);
+			registration.children.push(name);
 		}
 	}
 
@@ -209,9 +213,10 @@ exports.Container = class Container {
 
 			if (bean.bean && !bean.error && registration.children) {
 				await Promise.all(registration.children.map(childName => {
-					return this.get(`${name}.${childName}`).then(childBean => {
+					return this.get(childName).then(childBean => {
 						if (bean.error) return;
-						return this._setChild(bean, childName, childBean);
+						const [, propertyName] = this._identifyParentAndProperty(childName);
+						return this._setChild(bean, propertyName, childBean);
 					}, error => {
 						if (bean.error) return;
 						bean.error = error;

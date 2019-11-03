@@ -506,7 +506,7 @@ describe('Container', function () {
 			}).to.throw(BeanError);
 		});
 
-		it("adds property to created collection", async function () {
+		it("adds property to created collection with dot notation", async function () {
 			container.register("foo", value({}));
 
 			await container.get("foo");
@@ -517,7 +517,7 @@ describe('Container', function () {
 			expect(bean.bar).to.equal("baz");
 		});
 
-		it("adds property to pending collection", async function () {
+		it("adds property to pending collection with dot notation", async function () {
 			let promise1;
 			let promise2;
 
@@ -545,9 +545,55 @@ describe('Container', function () {
 			expect((await promise2).bar).to.equal("baz");
 		});
 
-		it("adds property to uncreated collection", async function () {
+		it("adds property to uncreated collection with dot notation", async function () {
 			container.register("foo", factory(() => ({})));
 			container.register("foo.bar", value("baz"));
+
+			expect((await container.get("foo")).bar).to.equal("baz");
+		});
+
+		it("adds property to created collection with bracket notation", async function () {
+			container.register("foo", value({}));
+
+			await container.get("foo");
+
+			container.register("foo[bar]", value("baz"));
+
+			const bean = await container.get("foo");
+			expect(bean.bar).to.equal("baz");
+		});
+
+		it("adds property to pending collection with bracket notation", async function () {
+			let promise1;
+			let promise2;
+
+			container.register("foo", factory(() => {
+				// Get "foo" again; this one still won't have the "bar" property because
+				// "foo" is still not fully created.
+				promise1 = container.get("foo");
+
+				// Register "foo.bar" while "foo" is being created.
+				container.register("foo[bar]", factory(async () => {
+					expect((await promise1).bar).to.be.undefined;
+
+					return "baz";
+				}));
+
+				// Get "foo" yet again; this one should have the "bar" property.
+				promise2 = container.get("foo");
+
+				return {};
+			}));
+
+			// We don't expect this one to have the "bar" property because it was retrieved
+			// before "foo" was created.
+			expect((await container.get("foo")).bar).to.be.undefined;
+			expect((await promise2).bar).to.equal("baz");
+		});
+
+		it("adds property to uncreated collection with bracket notation", async function () {
+			container.register("foo", factory(() => ({})));
+			container.register("foo[bar]", value("baz"));
 
 			expect((await container.get("foo")).bar).to.equal("baz");
 		});
@@ -582,17 +628,6 @@ describe('Container', function () {
 					() => { throw new Error("promise resolved but expecting rejection"); },
 					(error) => { expect(error.message).to.contain("bummer"); }
 			);
-		});
-
-		it("adds property using bracket notation", async function () {
-			container.register("foo", value({}));
-
-			await container.get("foo");
-
-			container.register("foo[bar]", value("baz"));
-
-			const bean = await container.get("foo");
-			expect(bean.bar).to.equal("baz");
 		});
 
 		it("sets into a Map", async function () {
