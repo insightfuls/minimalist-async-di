@@ -10,8 +10,8 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 	* [Promising beans](#promising-beans)
 	* [Registering constructors/classes](#registering-constructors/classes)
 	* [Registering factory functions](#registering-factory-functions)
-	* [Getting beans using dot notation](#getting-beans-using-dot-notation)
-	* [Registering beans using dot notation](#registering-beans-using-dot-notation)
+	* [Getting beans using dot or bracket notation](#getting-beans-using-dot-or-bracket-notation)
+	* [Registering beans using dot or bracket notation](#registering-beans-using-dot-or-bracket-notation)
 	* [Custom collections](#custom-collections)
 	* [Using beans as constructors or factories](#using-beans-as-constructors-or-factories)
 	* [Bound injection](#bound-injection)
@@ -194,21 +194,21 @@ container.registerFactory("flour", createFlour, "store");
 container.registerFactory("butter", createButter, "creamTopMilk");
 ```
 
-### Getting beans using dot notation
+### Getting beans using dot or bracket notation
 
-You can get properties of beans, or specify them as dependencies, using dot notation. If there is no bean which actually contains the dot in its name, the container will get the property on the parent bean (if the parent bean has been registered by the time the property on it is needed).
+You can get properties of beans, or specify them as dependencies, using dot or bracket notation. If there is no bean which actually contains the dot/bracket in its name, the container will get the property on the parent bean (if the parent bean has been registered by the time the property on it is needed).
 
 This registers a `sugar` bean which is created using the `sift` function (defined earlier) as a factory. It receives a dependency which is the `sugar` property from the `store` bean.
 
 ```
-container.register("sugar", factory(sift), "store.sugar");
+container.register("sugar", factory(sift), "store[sugar]");
 ```
 
 (The sugar will be added to the store in a moment.)
 
-### Registering beans using dot notation
+### Registering beans using dot or bracket notation
 
-When a bean is *registered* which contains a dot in its name, if the parent bean **has already been registered**, the new bean will be added as a property on the parent bean.
+When a bean is *registered* which contains a dot or bracket in its name, if the parent bean **has already been registered**, the new bean will be added as a property on the parent bean.
 
 If the parent bean has already been created when the property is registered, the property will be created immediately (though asynchronously), mutating the parent bean; if an error occurs, you will not find out about it until and unless you retrieve the parent bean again. If the parent bean has not been created (only registered), the property will be registered as its own bean until/unless the parent is retrieved, at which point all its property beans will be created and added to it.
 
@@ -221,7 +221,7 @@ const castorSugar = "castor sugar";
 ```
 
 ```
-container.register("store.sugar", value(castorSugar));
+container.register("store[sugar]", value(castorSugar));
 ```
 
 ### Custom collections
@@ -232,7 +232,7 @@ By default, the container will:
 
 * recognise `Map` objects and use their `get` and `set` methods
 * recognise `Container` objects and use their `get` and `registerValue` methods
-* otherwise just access object properties normally
+* otherwise just access object properties normally (which also works for array indexes)
 
 So, as far as the container is concerned, we could have created the `store` bean as a `Map`:
 
@@ -484,7 +484,7 @@ class MeringueFactory {
 ```
 
 ```
-container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "store.sugar");
+container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "store[sugar]");
 ```
 
 Note how the `MeringueFactory` itself has a factory injected (`createEgg`) to assist it to create new instances.
@@ -522,7 +522,7 @@ function createCreateCookingScope(parent) {
 		child.register("butter", factory(createButter), "creamTopMilk");
 		child.register("milk", factory("creamTopMilk.getMilk"));
 		child.register("mixture", factory(bean("mixer.getMixture")));
-		child.register("sugar", factory(sift), "store.sugar");
+		child.register("sugar", factory(sift), "store[sugar]");
 		child.register("oven", constructor(Oven), value("moderate"));
 		child.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"), bound("jamFactory.getJam"));
 		child.register("chicken", constructor(Chicken), seeker("parentCreateEgg"));

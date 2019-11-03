@@ -134,10 +134,10 @@ class MeringueFactory {
 const container = new Container();
 
 container.register("store", value(localStore));
-container.register("store.sugar", value(castorSugar));
+container.register("store[sugar]", value(castorSugar));
 container.register("chicken", constructor(Chicken), seeker("createEgg"));
 container.register("createEgg", factory(createCreateEgg), "chicken");
-container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "store.sugar");
+container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "store[sugar]");
 container.register("jamFactory", constructor(JamFactory));
 container.register("createCookingScope", factory(createCreateCookingScope), value(container));
 
@@ -158,7 +158,7 @@ function createCreateCookingScope(parent) {
 		child.register("butter", factory(createButter), "creamTopMilk");
 		child.register("milk", factory("creamTopMilk.getMilk"));
 		child.register("mixture", factory(bean("mixer.getMixture")));
-		child.register("sugar", factory(sift), "store.sugar");
+		child.register("sugar", factory(sift), "store[sugar]");
 		child.register("oven", constructor(Oven), value("moderate"));
 		child.register("pudding", constructor(Pudding),
 				bean("oven"), promise("mixture"), promiser("meringue"), bound("jamFactory.getJam"));

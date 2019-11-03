@@ -91,12 +91,9 @@ exports.Container = class Container {
 	}
 
 	_maybeRegisterInParentBean(name) {
-		const lastDot = name.lastIndexOf(".");
+		const [parentName, childName] = this._identifyParentAndProperty(name);
 
-		if (lastDot === -1) return;
-
-		const parentName = name.slice(0, lastDot);
-		const childName = name.slice(lastDot + 1);
+		if (!parentName || !childName) return;
 
 		if (this._beans.has(parentName)) {
 			const createdBean = this._beans.get(parentName);
@@ -171,18 +168,14 @@ exports.Container = class Container {
 	}
 
 	async _maybeResolvePropertyOfParentBean(name, ancestors) {
-		const lastDot = name.lastIndexOf(".");
+		const [parentName, propertyName] = this._identifyParentAndProperty(name);
 
-		if (lastDot === -1) return;
+		if (!parentName || !propertyName) return;
 
 		try {
-			const parentName = name.slice(0, lastDot);
-
 			const parent = await this._resolveBeanNamed(parentName, ancestors);
 
 			if (parent.error) throw parent.error;
-
-			const propertyName = name.slice(lastDot + 1);
 
 			const getter = parent.getter ? parent.getter : defaultGetter;
 
@@ -313,6 +306,36 @@ exports.Container = class Container {
 		if (registration.factory) {
 			return { bean: await fn(...dependencies) };
 		}
+	}
+
+	_identifyParentAndProperty(name) {
+		if (name.slice(-1) === "]") {
+			return this._identifyParentAndBracketProperty(name);
+		}
+
+		return this._identifyParentAndDotProperty(name);
+	}
+
+	_identifyParentAndBracketProperty(name) {
+		const openingBracket = name.lastIndexOf("[");
+
+		if (openingBracket === -1) return [null, null];
+
+		const parentName = name.slice(0, openingBracket);
+		const propertyName = name.slice(openingBracket + 1, -1);
+
+		return [parentName, propertyName];
+	}
+
+	_identifyParentAndDotProperty(name) {
+		const lastDot = name.lastIndexOf(".");
+
+		if (lastDot === -1) return [null, null];
+
+		const parentName = name.slice(0, lastDot);
+		const propertyName = name.slice(lastDot + 1);
+
+		return [parentName, propertyName];
 	}
 
 };

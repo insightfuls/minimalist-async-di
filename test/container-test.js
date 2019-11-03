@@ -200,10 +200,16 @@ describe('Container', function () {
 			);
 		});
 
-		it('gets property of bean', async function () {
+		it('gets property of bean with dot notation', async function () {
 			container.register("foo", value({ bar: "baz" }));
 
 			expect(await container.get("foo.bar")).to.equal("baz");
+		});
+
+		it('gets property of bean with bracket notation', async function () {
+			container.register("foo", value({ bar: "baz" }));
+
+			expect(await container.get("foo[bar]")).to.equal("baz");
 		});
 
 		it('rejects when bean property is retrieved if bean promise rejects', async function () {
@@ -221,16 +227,28 @@ describe('Container', function () {
 			expect((await container.get("foo.bar"))()).to.be.undefined;
 		});
 
-		it('gets nested property of bean', async function () {
+		it('gets nested dotted properties of bean', async function () {
 			container.register("foo", value({ bar: { baz: "qux" }}));
 
 			expect(await container.get("foo.bar.baz")).to.equal("qux");
+		});
+
+		it('gets nested bracketed properties of bean', async function () {
+			container.register("foo", value({ bar: { baz: "qux" }}));
+
+			expect(await container.get("foo[bar][baz]")).to.equal("qux");
 		});
 
 		it('gets property of bean with dot in name', async function () {
 			container.register("foo.bar", value({ baz: "qux" }));
 
 			expect(await container.get("foo.bar.baz")).to.equal("qux");
+		});
+
+		it('gets property of bean with bracket in name', async function () {
+			container.register("foo[bar]", value({ baz: "qux" }));
+
+			expect(await container.get("foo[bar][baz]")).to.equal("qux");
 		});
 
 		it('does not report instantiation error as no bean', async function () {
@@ -564,6 +582,17 @@ describe('Container', function () {
 					() => { throw new Error("promise resolved but expecting rejection"); },
 					(error) => { expect(error.message).to.contain("bummer"); }
 			);
+		});
+
+		it("adds property using bracket notation", async function () {
+			container.register("foo", value({}));
+
+			await container.get("foo");
+
+			container.register("foo[bar]", value("baz"));
+
+			const bean = await container.get("foo");
+			expect(bean.bar).to.equal("baz");
 		});
 
 		it("sets into a Map", async function () {
