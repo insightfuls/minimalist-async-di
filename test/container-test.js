@@ -22,7 +22,7 @@ describe('Container', function () {
 
 		it('throws registering with invalid creator', function () {
 			expect(() => {
-				container.register("foo", "bar");
+				container.register("foo", () => "bar");
 			}).to.throw(BeanError);
 		});
 
@@ -104,6 +104,26 @@ describe('Container', function () {
 			container.register("bar", factory("foo"));
 
 			expect(await container.get("bar")).to.be.an.instanceOf(ContainerTestBean);
+		});
+
+		it('registers alias', async function () {
+			container.register("foo", value("bar"));
+			container.register("baz", "foo");
+
+			expect(await container.get("baz")).to.equal("bar");
+		});
+
+		it('registers alias with bean creator', async function () {
+			container.register("foo", value("bar"));
+			container.register("baz", bean("foo"));
+
+			expect(await container.get("baz")).to.equal("bar");
+		});
+
+		it('throws registering alias with dependencies', function () {
+			expect(() => {
+				container.register("foo", bean("bar"), "baz");
+			}).to.throw(BeanError);
 		});
 
 		it('overrides registered bean', async function () {

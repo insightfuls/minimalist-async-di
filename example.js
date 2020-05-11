@@ -143,14 +143,12 @@ container.register("createCookingScope", factory(createCreateCookingScope), valu
 
 function createCreateCookingScope(parent) {
 	return async function createCookingScope() {
-		const reuseFromParent = factory(parent.get.bind(parent));
-		const parentBean = value;
-
 		const child = new Container();
 
-		child.register("store", reuseFromParent, parentBean("store"));
-		child.register("meringueFactory", reuseFromParent, parentBean("meringueFactory"));
-		child.register("jamFactory", reuseFromParent, parentBean("jamFactory"));
+		child.register("parent", value(parent));
+		child.register("store", "parent.store");
+		child.register("meringueFactory", bean("parent.meringueFactory"));
+		child.register("jamFactory", bean("parent.jamFactory"));
 		child.register("parentCreateEgg", value(await parent.get("createEgg")));
 		child.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
 		child.register("flour", factory(createFlour), "store");

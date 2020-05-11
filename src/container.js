@@ -22,9 +22,19 @@ exports.Container = class Container {
 					"use a string for a bean name, or collection()");
 		}
 
-		if (!(creator instanceof BeanConfig) || !creator.creator) {
+		if (typeof creator !== 'string' &&
+				(!(creator instanceof BeanConfig) || !creator.creator)) {
 			throw new BeanError("second argument to Container#register must be a bean creator; " +
-					"use constructor(), factory(), or value()");
+					"use a string, bean(), constructor(), factory(), or value()");
+		}
+
+		if (typeof creator === 'string') {
+			if (dependencies.length) {
+				throw new BeanError("aliases cannot have dependencies");
+			}
+
+			dependencies = [ creator ];
+			creator = { factory: (bean) => bean };
 		}
 
 		if (creator instanceof BeanValue) {
@@ -45,7 +55,7 @@ exports.Container = class Container {
 
 		dependencies.forEach(dependency => {
 			if (typeof dependency !== 'string' &&
-					(!(dependency instanceof BeanConfig) || !dependency.injector )) {
+					(!(dependency instanceof BeanConfig) || !dependency.injector)) {
 				throw new BeanError("dependencies must be bean names or injectors; " +
 						"use strings, bean(), promise(), promiser(), or seeker()");
 			}

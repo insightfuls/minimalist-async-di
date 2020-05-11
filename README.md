@@ -13,7 +13,7 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 	* [Getting beans using dot or bracket notation](#getting-beans-using-dot-or-bracket-notation)
 	* [Registering beans using dot or bracket notation](#registering-beans-using-dot-or-bracket-notation)
 	* [Custom collections](#custom-collections)
-	* [Using beans as constructors or factories](#using-beans-as-constructors-or-factories)
+	* [Using beans to create other beans](#using-beans-to-create-other-beans)
 	* [Bound injection](#bound-injection)
 	* [Explicit injection](#explicit-injection)
 	* [Asynchronous injection](#asynchronous-injection)
@@ -284,11 +284,15 @@ localStore.stock("flour", "self-raising flour");
 container.register(collection("store", Store.prototype.purchase, Store.prototype.stock), value(localStore));
 ```
 
-### Using beans as constructors or factories
+### Using beans to create other beans
 
-You can use a bean itself as a constructor or factory to create another bean. Just give the name of the bean instead of an actual constructor or factory function. If you prefer, wrap the name in `bean()` for clarity.
+You can use a bean (or property of a bean using dot or bracket notation) as a value, constructor or factory to create another bean.
 
-If you use a property of a bean (using dot notation) then the function will be called as a method, with `this` set to the bean.
+To use a bean itself as the value of another bean, essentially making the second bean an alias of the first, just give the bean name as the creator, or for greater clarity, wrap the name in `bean()`.
+
+To use a bean as a constructor or factory, just give the name of the bean to the `constructor()` or `factory()` creator. If you prefer, wrap the name in `bean()` for clarity.
+
+For the `factory()` case, if you use a property of a bean (using dot or bracket notation) then the function will be called as a method, with `this` set to the bean.
 
 Here we register a `milk` bean which is created using the `getMilk` method on the `creamTopMilk` bean, and a `mixture` bean which is created using the `getMixture` method on the `mixer` bean.
 
@@ -296,6 +300,8 @@ Here we register a `milk` bean which is created using the `getMilk` method on th
 container.register("milk", factory("creamTopMilk.getMilk"));
 container.register("mixture", factory(bean("mixer.getMixture")));
 ```
+
+See [Scope creation](#scope-creation) below for examples of aliasing beans.
 
 ### Bound injection
 
@@ -498,23 +504,21 @@ container.register("meringue", factory("meringueFactory.create"));
 
 ### Scope creation
 
-If you need to repeatedly create scopes with managed beans, use a bean which is a factory which produces containers. It can be convenient to provide the parent container as a dependency to such a factory so it can use the `get` method to "reuse" beans from the parent container in the child container.
+If you need to repeatedly create scopes with managed beans, use a bean which is a factory which produces containers. It can be convenient to provide the parent container as a dependency to such a factory so it can register it and alias beans from the parent container in the child container.
 
-Suppose the `store`, `chicken`, `createEgg` and `meringueFactory` beans are "global", registered in the parent container. You could register a factory which creates child containers and registers beans like below. Notice how the `store` and `meringueFactory` beans are reused by registering `parent.get` as a factory function, so they will be created on demand, whereas we get the parent's `createEgg` bean when we instantiate the scope so it is inserted pre-created into the child container.
+Suppose the `store`, `chicken`, `createEgg` and `meringueFactory` beans are "global", registered in the parent container. You could register a factory which creates child containers and registers beans like below. Notice how the `store`, `meringueFactory` and `jamFactory` beans are aliases for beans on the parent container (which is registered as a `parent` bean); these will be created on demand. Contrastingly, we get the parent's `createEgg` bean when we instantiate the scope so it is inserted pre-created into the child container.
 
 ```
 container.register("createCookingScope", factory(createCreateCookingScope), value(container));
 
 function createCreateCookingScope(parent) {
 	return async function createCookingScope() {
-		const reuseFromParent = factory(parent.get.bind(parent));
-		const parentBean = value;
-
 		const child = new Container();
 
-		child.register("store", reuseFromParent, parentBean("store"));
-		child.register("meringueFactory", reuseFromParent, parentBean("meringueFactory"));
-		child.register("jamFactory", reuseFromParent, parentBean("jamFactory"));
+		child.register("parent", value(parent));
+		child.register("store", "parent.store");
+		child.register("meringueFactory", bean("parent.meringueFactory"));
+		child.register("jamFactory", bean("parent.jamFactory"));
 		child.register("parentCreateEgg", value(await parent.get("createEgg")));
 		child.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
 		child.register("flour", factory(createFlour), "store");
@@ -627,6 +631,11 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 * Creator which creates the bean by calling `await ftory(dependency1, ...)`
 * This works for both synchronous and asynchronous factory functions
 * If `ftory` is a string, the bean with that name will be used as the factory; you can use `factory(bean(name))` for clarity if you prefer
+
+`bean(name)`
+* Creator which uses the bean named `name` as the bean, i.e. it aliases one bean to another
+* Alternatively, it could be a property on another bean, using dot notation
+* You can just provide the `name` as the creator without using `bean()` for the same effect
 
 ### Injectors
 
