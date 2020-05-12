@@ -56,7 +56,7 @@ container.get("pudding")
 .then(pudding => pudding.serveTo("Ben"));
 ```
 
-We will actually register this bean in a moment. (In reality, of course, it needs to be registered before it is retrieved.)
+We will actually register this bean [later](#asynchronous-injection). (In reality, of course, it needs to be registered before it is retrieved.)
 
 Because beans are always retrieved asynchronously, they, and their dependencies, can always be instantiated asynchronously, too. This minimises the impact of "async creep", a phenomenon where you have a lot of synchronous code, and then discover that deep within it you need an asynchronous operation, so you have to propagate the asynchrony through the codebase, which is a large refactoring effort. Such refactoring is now limited to within a single bean.
 
@@ -198,13 +198,13 @@ container.registerFactory("butter", createButter, "creamTopMilk");
 
 You can get properties of beans, or specify them as dependencies, using dot or bracket notation. If there is no bean which actually contains the dot/bracket in its name, the container will get the property on the parent bean (if the parent bean has been registered by the time the property on it is needed).
 
-This registers a `sugar` bean which is created using the `sift` function (defined earlier) as a factory. It receives a dependency which is the `sugar` property from the `store` bean.
+This registers a `sugar` bean which is created using the `sift` function (defined [earlier](#registering-factory-functions)) as a factory. It receives a dependency which is the `sugar` property from the `store` bean.
 
 ```
 container.register("sugar", factory(sift), "store[sugar]");
 ```
 
-(The sugar will be added to the store in a moment.)
+(The sugar will be added to the store [shortly](#registering-beans-using-dot-or-bracket-notation).)
 
 ### Registering beans using dot or bracket notation
 
@@ -284,6 +284,16 @@ localStore.stock("flour", "self-raising flour");
 container.register(collection("store", Store.prototype.purchase, Store.prototype.stock), value(localStore));
 ```
 
+In *all* of these cases, getting and registering properties of the store are unchanged.
+
+```
+container.register("store[sugar]", value(castorSugar));
+```
+
+```
+container.register("sugar", factory(sift), "store[sugar]");
+```
+
 ### Using beans to create other beans
 
 You can use a bean (or property of a bean using dot or bracket notation) as a value, constructor or factory to create another bean.
@@ -294,14 +304,22 @@ To use a bean as a constructor or factory, just give the name of the bean to the
 
 For the `factory()` case, if you use a property of a bean (using dot or bracket notation) then the function will be called as a method, with `this` set to the bean.
 
-Here we register a `milk` bean which is created using the `getMilk` method on the `creamTopMilk` bean, and a `mixture` bean which is created using the `getMixture` method on the `mixer` bean.
+Here we register:
+ * a `hen` bean, which is just an alias for the `chicken` bean,
+ * a `milk` bean, which is created using the `getMilk` method on the `creamTopMilk` bean,
+ * a `mixture` bean which is created using the `getMixture` method on the `mixer` bean.
 
 ```
+container.register("hen", bean("chicken"));
 container.register("milk", factory("creamTopMilk.getMilk"));
 container.register("mixture", factory(bean("mixer.getMixture")));
 ```
 
-See [Scope creation](#scope-creation) below for examples of aliasing beans.
+`registerAlias` is syntax sugar for `register` with `bean`, so we could have used this if we preferred:
+
+```
+container.registerAlias("hen", "chicken");
+```
 
 ### Bound injection
 
@@ -464,15 +482,15 @@ If you need to create new instances repeatedly, use a bean which is itself a fac
 This could be a factory function like this `createEgg` function. Note how a "meta-factory" is used to create the factory.
 
 ```
-function createCreateEgg(chicken) {
+function createCreateEgg(hen) {
 	return async function createEgg() {
-		return chicken.lay();
+		return hen.lay();
 	}
 }
 ```
 
 ```
-container.register("createEgg", factory(createCreateEgg), "chicken");
+container.register("createEgg", factory(createCreateEgg), "hen");
 ```
 
 Alternatively, it could be a class-style factory, like this `MeringueFactory`.
@@ -530,7 +548,8 @@ function createCreateCookingScope(parent) {
 		child.register("oven", constructor(Oven), value("moderate"));
 		child.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"), bound("jamFactory.getJam"));
 		child.register("chicken", constructor(Chicken), seeker("parentCreateEgg"));
-		child.register("createEgg", factory(createCreateEgg), "chicken");
+		child.register("hen", bean("chicken"));
+		child.register("createEgg", factory(createCreateEgg), "hen");
 		child.register("eggForMixture", factory("createEgg"));
 		child.register("meringue", factory("meringueFactory.create"));
 
@@ -557,7 +576,7 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 If you register a bean with the same name as an already-registered one, the existing one is replaced without any error. This allows you to override beans with stubs or mocks for testing.
 
-Note that it will only work if the bean has not already been created. Also, collections will 'lose' any children registered with dot notation (only children registered after the new parent registration will be added to the new parent).
+Note that it will only work if the bean has not already been created. Also, collections will 'lose' any children registered with dot or bracket notation (only children registered after the new parent registration will be added to the new parent).
 
 Here's an example where we replace the `meringueFactory` with a fake one.
 
@@ -600,6 +619,7 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 * `container.registerConstructor(name, Ctor, dep1, ...)`: `container.register(name, constructor(Ctor), dep1, ...)`
 * `container.registerClass(name, Ctor, dep1, ...)`: `container.register(name, constructor(Ctor), dep1, ...)`
 * `container.registerFactory(name, ftory, dep1, ...)`: `container.register(name, factory(ftory), dep1, ...)`
+* `container.registerAlias(alias, name)`: `container.register(alias, bean(name))`
 
 ### Specifiers
 

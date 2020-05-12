@@ -161,7 +161,8 @@ function createCreateCookingScope(parent) {
 		child.register("pudding", constructor(Pudding),
 				bean("oven"), promise("mixture"), promiser("meringue"), bound("jamFactory.getJam"));
 		child.register("chicken", constructor(Chicken), seeker("parentCreateEgg"));
-		child.register("createEgg", factory(createCreateEgg), "chicken");
+		child.register("hen", bean("chicken"));
+		child.register("createEgg", factory(createCreateEgg), "hen");
 		child.register("eggForMixture", factory("createEgg"));
 		child.register("meringue", factory("meringueFactory.create"));
 

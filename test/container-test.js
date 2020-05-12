@@ -195,6 +195,13 @@ describe('Container', function () {
 			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
 		});
 
+		it('registers alias with registerAlias', async function () {
+			container.register("foo", value("bar"));
+			container.registerAlias("baz", "foo");
+
+			expect(await container.get("baz")).to.equal("bar");
+		});
+
 	});
 
 	describe('getting beans', function () {

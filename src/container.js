@@ -99,6 +99,10 @@ exports.Container = class Container {
 		this.register(name, new BeanFactory(factory), ...dependencies);
 	}
 
+	registerAlias(alias, name) {
+		this.register(alias, name);
+	}
+
 	async get(name) {
 		const bean = (await this._resolveBeanNamed(name, new Set()));
 		if (bean.error) throw bean.error;
@@ -401,7 +405,7 @@ BeanCollection.prototype.specifier = true;
 exports.collection = (name, getter, setter) => new BeanCollection(name, getter, setter);
 
 /*
- * bean() is both a specifier and an injector that does nothing.
+ * bean() is a specifier, creator and injector that does nothing.
  */
 
 exports.bean = (name) => name;
