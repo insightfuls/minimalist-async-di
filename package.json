@@ -1,6 +1,6 @@
 {
   "name": "minimalist-async-di",
-  "version": "3.3.1",
+  "version": "3.3.2",
   "description": "Asynchronous IoC/dependency injection container with a minimalist API, but which packs a punch",
   "main": "src/container.js",
   "directories": {

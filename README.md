@@ -390,9 +390,9 @@ Usually constructors and factories receive their dependencies synchronously.
 
 However, it is possible to provide a promise for the dependency using `promise`, or an asynchronous factory function for the dependency using `promiser`. Some use cases for this are:
 
-* `promise`: The dependency is received asynchronously, so you can begin other processing while waiting for it to arrive.
-* `promiser`: You only call the factory *if* you need to use the dependency. If you don't need it, it is never retrieved (perhaps never even created) so it can be used for dependencies which might not be needed in practice.
-* `promiser`: You only call the factory *when* you need to use the dependency. This gives you a tool to use to avoid cyclic dependencies (which, as much as we try to avoid them, sometimes do seem like the right solution). As long as there is a `promiser` somewhere in the cycle, and the `promiser` isn't called as part of creating the bean (but deferred until it needs to be used), the beans will be able to be created.
+* It gives you a tool to use to avoid cyclic dependencies (which, as much as we try to avoid them, sometimes do seem like the right solution). As long as there is an asynchronous injection somewhere in the cycle, and the promise doesn't block the creation of the bean it is injected into (but can settle later), the beans will be able to be created.
+* Since the dependency is received asynchronously, you can begin other processing while waiting for it to arrive.
+* For `promiser`, you only call the factory if you need to use the dependency. If you don't need it, it is never retrieved (perhaps never even created) so it can be used for dependencies which might not be needed in practice.
 
 This `Pudding` class uses both kinds of asynchronous injection. It receives the mixture asynchronously so that the oven can be preheated while the mixture is being prepared, and it only gets meringue if the user actually wants it (calls the `addToppings()` method).
 

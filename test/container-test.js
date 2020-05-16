@@ -436,22 +436,35 @@ describe('Container', function () {
 			);
 		});
 
-		it('injected promise rejects with cyclic dependency', async function () {
+		it('succeeds with cyclic dependency with promise first', async function () {
 			container.register("foo", constructor(ContainerTestBean), promise("bar"));
-			container.register("bar", constructor(ContainerTestBean), promise("baz"));
-			container.register("baz", constructor(ContainerTestBean), promise("foo"));
+			container.register("bar", constructor(ContainerTestBean), bean("foo"));
+
+			const foo = await container.get("foo");
+			const barInFoo = await foo.args[0];
+			expect(barInFoo).to.not.be.undefined;
+
+			const bar = await container.get("bar");
+			expect(barInFoo).to.equal(bar);
+		});
+
+		it('succeeds with cyclic dependency with promise second', async function () {
+			container.register("foo", constructor(ContainerTestBean), bean("bar"));
+			container.register("bar", constructor(ContainerTestBean), promise("foo"));
 
 			const foo = await container.get("foo");
 			const bar = await container.get("bar");
-			const baz = await container.get("baz");
+			expect((await bar.args[0])).to.equal(foo);
+		});
 
-			// The order of retrieval determines which promise will reject
-			expect(await foo.args[0]).to.equal(bar);
-			expect(await bar.args[0]).to.equal(baz);
-			await baz.args[0].then(
-					() => { throw new Error("promise resolved but expecting rejection"); },
-					(error) => { expect(error).to.be.an.instanceOf(BeanError); }
-			);
+		it('succeeds with cyclic dependency with symmetrical promises', async function () {
+			container.register("foo", constructor(ContainerTestBean), promise("bar"));
+			container.register("bar", constructor(ContainerTestBean), promise("foo"));
+
+			const foo = await container.get("foo");
+			const bar = await container.get("bar");
+			expect((await bar.args[0])).to.equal(foo);
+			expect((await foo.args[0])).to.equal(bar);
 		});
 
 		it('succeeds with cyclic dependency with promiser first', async function () {
@@ -475,6 +488,16 @@ describe('Container', function () {
 			expect((await bar.args[0]())).to.equal(foo);
 		});
 
+		it('succeeds with cyclic dependency with symmetrical promisers', async function () {
+			container.register("foo", constructor(ContainerTestBean), promiser("bar"));
+			container.register("bar", constructor(ContainerTestBean), promiser("foo"));
+
+			const foo = await container.get("foo");
+			const bar = await container.get("bar");
+			expect((await bar.args[0]())).to.equal(foo);
+			expect((await foo.args[0]())).to.equal(bar);
+		});
+
 		it('succeeds with cyclic dependency with seeker first', async function () {
 			container.register("foo", constructor(ContainerTestBean), seeker("bar"));
 			container.register("bar", constructor(ContainerTestBean), bean("foo"));
@@ -491,7 +514,18 @@ describe('Container', function () {
 			container.register("bar", constructor(ContainerTestBean), seeker("foo"));
 
 			const foo = await container.get("foo");
-			expect((await container.get("bar")).args[0]()).to.equal(foo);
+			const bar = await container.get("bar");
+			expect(bar.args[0]()).to.equal(foo);
+		});
+
+		it('succeeds with cyclic dependency with symmetrical seekers', async function () {
+			container.register("foo", constructor(ContainerTestBean), seeker("bar"));
+			container.register("bar", constructor(ContainerTestBean), seeker("foo"));
+
+			const foo = await container.get("foo");
+			const bar = await container.get("bar");
+			expect(bar.args[0]()).to.equal(foo);
+			expect(foo.args[0]()).to.equal(bar);
 		});
 
 	});

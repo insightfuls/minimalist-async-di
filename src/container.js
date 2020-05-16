@@ -165,14 +165,16 @@ exports.Container = class Container {
 		}
 
 		if (this._registrations.has(name)) {
-			const promise = this._createBeanNamed(name, ancestors);
-
+			const { promise, resolve, reject } = this._createPromise();
 			this._pending.set(name, promise);
+
+			const registration = this._registrations.get(name);
 			this._registrations.delete(name);
 
+			this._createBeanForRegistration(registration, ancestors).then(resolve, reject);
 			const bean = await promise;
-
 			this._beans.set(name, bean);
+
 			this._pending.delete(name);
 
 			return bean;
@@ -183,6 +185,15 @@ exports.Container = class Container {
 		if (propertyOfParentBean) return propertyOfParentBean;
 
 		throw new BeanError(`no bean registered with name '${name}'`);
+	}
+
+	_createPromise() {
+		let resolve, reject;
+		const promise = new Promise((res, rej) => {
+			resolve = res;
+			reject = rej;
+		});
+		return { promise, resolve, reject };
 	}
 
 	async _maybeResolvePropertyOfParentBean(name, ancestors) {
@@ -210,17 +221,16 @@ exports.Container = class Container {
 		}
 	}
 
-	async _createBeanNamed(name, ancestors) {
-		const registration = this._registrations.get(name);
-
+	async _createBeanForRegistration(registration, ancestors) {
 		try {
-			const dependencyAncestors = new Set(ancestors).add(name);
+			const dependencyAncestors = new Set(ancestors).add(registration.name);
 
 			const resolvedDependencies =
 					await Promise.all(this._dependencyConfigsFor(registration)
 					.map(config => this._resolveDependency(config, dependencyAncestors)));
 
-			const bean = await this._createBeanFor(registration, resolvedDependencies);
+			const bean = await this._createBeanGivenDependencies(
+					registration, resolvedDependencies);
 
 			bean.getter = registration.getter;
 			bean.setter = registration.setter;
@@ -240,7 +250,7 @@ exports.Container = class Container {
 
 			return bean;
 		} catch (e) {
-			const message = `while creating bean '${name}':\n${e.name}: ${e.message}`;
+			const message = `while creating bean '${registration.name}':\n${e.name}: ${e.message}`;
 
 			const toThrow = (e instanceof BeanError) ? new BeanError(message) : new Error(message);
 
@@ -280,7 +290,7 @@ exports.Container = class Container {
 		}
 
 		if (config instanceof BeanPromise) {
-			return { bean: this._resolveBeanNamed(config.name, ancestors).then(bean => bean.bean) };
+			return { bean: this._resolveBeanNamed(config.name, new Set()).then(bean => bean.bean) };
 		}
 
 		if (config instanceof BeanPromiser) {
@@ -297,7 +307,7 @@ exports.Container = class Container {
 		}
 	}
 
-	async _createBeanFor(registration, resolvedDependencies) {
+	async _createBeanGivenDependencies(registration, resolvedDependencies) {
 		if (registration.value) {
 			return { bean: registration.value };
 		}
@@ -436,7 +446,7 @@ class BeanPromise extends BeanConfig {
 		}
 	}
 }
-exports.promise = (name) => new BeanPromise(name);
+exports.promise = (nameOrPromise) => new BeanPromise(nameOrPromise);
 
 /*
  * Other creators.
