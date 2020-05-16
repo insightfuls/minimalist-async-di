@@ -151,8 +151,8 @@ exports.Container = class Container {
 		setter.call(resolvedParent.bean, childName, childBean);
 	}
 
-	async _resolveBeanNamed(name, ancestors) {
-		if (ancestors.has(name)) {
+	async _resolveBeanNamed(name, dependants) {
+		if (dependants.has(name)) {
 			throw new BeanError(`dependency '${name}' creates a cycle`);
 		}
 
@@ -171,7 +171,7 @@ exports.Container = class Container {
 			const registration = this._registrations.get(name);
 			this._registrations.delete(name);
 
-			this._createBeanForRegistration(registration, ancestors).then(resolve, reject);
+			this._createBeanForRegistration(registration, dependants).then(resolve, reject);
 			const bean = await promise;
 			this._beans.set(name, bean);
 
@@ -180,7 +180,7 @@ exports.Container = class Container {
 			return bean;
 		}
 
-		const propertyOfParentBean = await this._maybeResolvePropertyOfParentBean(name, ancestors);
+		const propertyOfParentBean = await this._maybeResolvePropertyOfParentBean(name, dependants);
 
 		if (propertyOfParentBean) return propertyOfParentBean;
 
@@ -196,13 +196,13 @@ exports.Container = class Container {
 		return { promise, resolve, reject };
 	}
 
-	async _maybeResolvePropertyOfParentBean(name, ancestors) {
+	async _maybeResolvePropertyOfParentBean(name, dependants) {
 		const [parentName, propertyName] = this._identifyParentAndProperty(name);
 
 		if (!parentName || !propertyName) return;
 
 		try {
-			const parent = await this._resolveBeanNamed(parentName, ancestors);
+			const parent = await this._resolveBeanNamed(parentName, dependants);
 
 			if (parent.error) throw parent.error;
 
@@ -221,13 +221,13 @@ exports.Container = class Container {
 		}
 	}
 
-	async _createBeanForRegistration(registration, ancestors) {
+	async _createBeanForRegistration(registration, dependants) {
 		try {
-			const dependencyAncestors = new Set(ancestors).add(registration.name);
+			const dependencyDependants = new Set(dependants).add(registration.name);
 
 			const resolvedDependencies =
 					await Promise.all(this._dependencyConfigsFor(registration)
-					.map(config => this._resolveDependency(config, dependencyAncestors)));
+					.map(config => this._resolveDependency(config, dependencyDependants)));
 
 			const bean = await this._createBeanGivenDependencies(
 					registration, resolvedDependencies);
@@ -273,13 +273,13 @@ exports.Container = class Container {
 		return dependencyConfigs;
 	}
 
-	_resolveDependency(config, ancestors) {
+	_resolveDependency(config, dependants) {
 		if (typeof config === 'string') {
-			return this._resolveBeanNamed(config, ancestors);
+			return this._resolveBeanNamed(config, dependants);
 		}
 
 		if (config instanceof BeanBound) {
-			return this._resolveBeanNamed(config.name, ancestors).then(bean => {
+			return this._resolveBeanNamed(config.name, dependants).then(bean => {
 				if (bean.error) return bean;
 				return { bean: bean.bean.bind(bean.parent) };
 			});
