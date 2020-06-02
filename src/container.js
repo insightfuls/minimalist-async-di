@@ -19,7 +19,7 @@ exports.Container = class Container {
 
 		if (!(specifier instanceof BeanConfig) || !specifier.specifier) {
 			throw new BeanError("first argument to Container#register must be a bean specifier; " +
-					"use a string for a bean name, or collection()");
+					"use a string, bean(), or collection()");
 		}
 
 		if (typeof creator !== 'string' &&
@@ -450,7 +450,7 @@ exports.value = (value) => new BeanValue(value);
 class BeanPromise extends BeanConfig {
 	constructor(nameOrPromise) {
 		super();
-		if (nameOrPromise.then) {
+		if (nameOrPromise.then && typeof nameOrPromise.then === 'function') {
 			this.promise = nameOrPromise;
 			this.creator = true;
 		} else {
@@ -468,6 +468,11 @@ exports.promise = (nameOrPromise) => new BeanPromise(nameOrPromise);
 class BeanConstructor extends BeanConfig {
 	constructor(Constructor) {
 		super();
+
+		if (typeof Constructor !== 'string' && typeof Constructor !== 'function') {
+			throw new BeanError("invalid constructor");
+		}
+
 		this.Constructor = Constructor;
 	}
 }
@@ -477,6 +482,11 @@ exports.constructor = (Constructor) => new BeanConstructor(Constructor);
 class BeanFactory extends BeanConfig {
 	constructor(factory) {
 		super();
+
+		if (typeof factory !== 'string' && typeof factory !== 'function') {
+			throw new BeanError("invalid factory");
+		}
+
 		this.factory = factory;
 	}
 }

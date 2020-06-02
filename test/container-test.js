@@ -87,6 +87,12 @@ describe('Container', function () {
 			expect(await container.get("bar")).to.be.an.instanceOf(ContainerTestBean);
 		});
 
+		it('throws registering invalid constructor', async function () {
+			expect(() => {
+				container.register("foo", constructor(null));
+			}).to.throw(BeanError);
+		});
+
 		it('registers synchronous factory function', async function () {
 			container.register("foo", factory(() => new ContainerTestBean()));
 
@@ -104,6 +110,12 @@ describe('Container', function () {
 			container.register("bar", factory("foo"));
 
 			expect(await container.get("bar")).to.be.an.instanceOf(ContainerTestBean);
+		});
+
+		it('throws registering invalid factory function', async function () {
+			expect(() => {
+				container.register("foo", factory(null));
+			}).to.throw(BeanError);
 		});
 
 		it('registers alias', async function () {
