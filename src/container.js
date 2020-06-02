@@ -182,6 +182,19 @@ exports.Container = class Container {
 
 		const propertyOfParentBean = await this._maybeResolvePropertyOfParentBean(name, dependants);
 
+		if (propertyOfParentBean instanceof Error) {
+			const e = propertyOfParentBean;
+
+			const messagePrefix = `no bean registered with name '${name}' ` +
+					`and while resolving parent:\n`;
+			const message = `${messagePrefix}${e.name}: ${e.message}`;
+
+			const toThrow = new BeanError(message);
+			toThrow.stack = `${toThrow.name}: ${messagePrefix}${e.stack}`;
+
+			throw toThrow;
+		}
+
 		if (propertyOfParentBean) return propertyOfParentBean;
 
 		throw new BeanError(`no bean registered with name '${name}'`);
@@ -217,7 +230,7 @@ exports.Container = class Container {
 				throw error;
 			}
 
-			/* fall through */
+			return error;
 		}
 	}
 
@@ -250,11 +263,11 @@ exports.Container = class Container {
 
 			return bean;
 		} catch (e) {
-			const message = `while creating bean '${registration.name}':\n${e.name}: ${e.message}`;
+			const messagePrefix = `while creating bean '${registration.name}':\n`;
+			const message = `${messagePrefix}${e.name}: ${e.message}`;
 
 			const toThrow = (e instanceof BeanError) ? new BeanError(message) : new Error(message);
-
-			toThrow.stack += "\n\n" + e.stack;
+			toThrow.stack = `${toThrow.name}: ${messagePrefix}${e.stack}`;
 
 			throw toThrow;
 		}
@@ -507,7 +520,11 @@ exports.seeker = (name) => new BeanSeeker(name);
 
 const BeanError = exports.BeanError = function BeanError(message) {
 	this.message = message;
-	this.stack = (new Error(message)).stack;
+
+	const stackError = new Error(message);
+	stackError.name = "BeanError";
+
+	this.stack = stackError.stack;
 };
 BeanError.prototype = Object.create(Error.prototype);
 BeanError.prototype.name = "BeanError";
