@@ -39,6 +39,14 @@ Here's everything you might need.
 const { Container, value, promise, constructor, factory, bean, collection, bound, promiser, seeker } = require("minimalist-async-di");
 ```
 
+If you have been passed a `Container` instance, say `container`, you can instead do:
+
+```
+const { constructor: Container, value, promise, constructor, factory, bean, collection, bound, promiser, seeker } = container;
+```
+
+This avoids problems when two different versions of `minimalist-async-di` are installed and the one you `require` was not used to create the container instance, so they do not interoperate.
+
 ### Create a container
 
 Creating a container is super simple.

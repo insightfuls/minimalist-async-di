@@ -403,7 +403,7 @@ function defaultSetter(name, value) {
 }
 
 /*
- * BeanConfig base class.
+ * BeanConfig base class and object.
  */
 
 class BeanConfig {
@@ -411,6 +411,8 @@ class BeanConfig {
 BeanConfig.prototype.specifier = false;
 BeanConfig.prototype.creator = false;
 BeanConfig.prototype.injector = false;
+
+const config = {};
 
 /*
  * Specifiers
@@ -425,13 +427,13 @@ class BeanCollection extends BeanConfig {
 	}
 }
 BeanCollection.prototype.specifier = true;
-exports.collection = (name, getter, setter) => new BeanCollection(name, getter, setter);
+config.collection = (name, getter, setter) => new BeanCollection(name, getter, setter);
 
 /*
  * bean() is a specifier, creator and injector that does nothing.
  */
 
-exports.bean = (name) => name;
+config.bean = (name) => name;
 
 /*
  * value() and promise() are both creators and injectors.
@@ -445,7 +447,7 @@ class BeanValue extends BeanConfig {
 }
 BeanValue.prototype.creator = true;
 BeanValue.prototype.injector = true;
-exports.value = (value) => new BeanValue(value);
+config.value = (value) => new BeanValue(value);
 
 class BeanPromise extends BeanConfig {
 	constructor(nameOrPromise) {
@@ -459,7 +461,7 @@ class BeanPromise extends BeanConfig {
 		}
 	}
 }
-exports.promise = (nameOrPromise) => new BeanPromise(nameOrPromise);
+config.promise = (nameOrPromise) => new BeanPromise(nameOrPromise);
 
 /*
  * Other creators.
@@ -477,7 +479,7 @@ class BeanConstructor extends BeanConfig {
 	}
 }
 BeanConstructor.prototype.creator = true;
-exports.constructor = (Constructor) => new BeanConstructor(Constructor);
+config.constructor = (Constructor) => new BeanConstructor(Constructor);
 
 class BeanFactory extends BeanConfig {
 	constructor(factory) {
@@ -491,7 +493,7 @@ class BeanFactory extends BeanConfig {
 	}
 }
 BeanFactory.prototype.creator = true;
-exports.factory = (factory) => new BeanFactory(factory);
+config.factory = (factory) => new BeanFactory(factory);
 
 /*
  * Other injectors.
@@ -504,7 +506,7 @@ class BeanBound extends BeanConfig {
 	}
 }
 BeanBound.prototype.injector = true;
-exports.bound = (name) => new BeanBound(name);
+config.bound = (name) => new BeanBound(name);
 
 class BeanPromiser extends BeanConfig {
 	constructor(name) {
@@ -513,7 +515,7 @@ class BeanPromiser extends BeanConfig {
 	}
 }
 BeanPromiser.prototype.injector = true;
-exports.promiser = (name) => new BeanPromiser(name);
+config.promiser = (name) => new BeanPromiser(name);
 
 class BeanSeeker extends BeanConfig {
 	constructor(name) {
@@ -522,13 +524,13 @@ class BeanSeeker extends BeanConfig {
 	}
 }
 BeanSeeker.prototype.injector = true;
-exports.seeker = (name) => new BeanSeeker(name);
+config.seeker = (name) => new BeanSeeker(name);
 
 /*
  * Error class.
  */
 
-const BeanError = exports.BeanError = function BeanError(message) {
+const BeanError = config.BeanError = function BeanError(message) {
 	this.message = message;
 
 	const stackError = new Error(message);
@@ -539,3 +541,10 @@ const BeanError = exports.BeanError = function BeanError(message) {
 BeanError.prototype = Object.create(Error.prototype);
 BeanError.prototype.name = "BeanError";
 BeanError.prototype.constructor = BeanError;
+
+/*
+ * Export config functions/error class, and put on instances.
+ */
+
+Object.assign(exports, config);
+Object.assign(exports.Container.prototype, config);

@@ -2,10 +2,12 @@
 
 const expect = require("chai").expect;
 
+const library = require("../src/container");
+
 const {
 	Container, value, promise, constructor, factory, bean, collection, bound, promiser, seeker,
 	BeanError
-} = require("../src/container");
+} = library;
 
 describe('Container', function () {
 
@@ -803,6 +805,29 @@ describe('Container', function () {
 			container.register(asynchronousCollectionSpecfier, value(myCollection));
 
 			expect(await container.get("foo.bar")).to.equal("baz");
+		});
+
+	});
+
+	describe("references on instances", function () {
+
+		Object.entries({
+			"collection": "specifier",
+			"bean": "specifier/creator/injector",
+			"value": "creator/injector",
+			"promise": "creator/injector",
+			"constructor": "creator",
+			"factory": "creator",
+			"bound": "injector",
+			"promiser": "injector",
+			"seeker": "injector",
+			"BeanError": "class"
+		}).forEach(([ name, kind ]) => {
+			it(`has reference to ${name} ${kind} on container instance`, function () {
+				const container = new Container();
+
+				expect(container[name]).to.equal(library[name]);
+			});
 		});
 
 	});
