@@ -110,11 +110,6 @@ We just register it as is, in a bean named "store".
 container.register("store", value(localStore));
 ```
 
-`registerValue` and `registerBean` are syntax sugar for `register` with `value`, so either of these works too if you prefer:
-
-* `container.registerValue("store", localStore);`
-* `container.registerBean("store", localStore);`
-
 ### Promising beans
 
 You can also register promises to beans using the `register` method with the `promise` creator.
@@ -152,12 +147,6 @@ class CreamTopMilk {
 container.register("creamTopMilk", promise((new CreamTopMilk()).pasteurize()));
 ```
 
-`registerPromise` is syntax sugar for `register` with `promise`, so we could have used this if we preferred:
-
-```
-container.registerPromise("creamTopMilk", (new CreamTopMilk()).pasteurize());
-```
-
 ### Registering constructors/classes
 
 You can register constructor functions (or ES6 classes) using the `register` method with the `constructor` creator.
@@ -180,11 +169,6 @@ Here we register a bean named "mixer", which is created using the `Mixer` constr
 ```
 container.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
 ```
-
-`registerClass` and `registerConstructor` are syntax sugar for `register` with `constructor`, so we could have used either of these if we preferred:
-
-* `container.registerConstructor("mixer", Mixer, "butter", "sugar", "eggForMixture", "milk", "flour");`
-* `container.registerClass("mixer", Mixer, "butter", "sugar", "eggForMixture", "milk", "flour");`
 
 ### Registering factory functions
 
@@ -217,13 +201,6 @@ function createButter(creamTopMilk) {
 
 ```
 container.register("butter", factory(createButter), "creamTopMilk");
-```
-
-`registerFactory` is syntax sugar for `register` with `factory`, so we could have used this if we preferred:
-
-```
-container.registerFactory("flour", createFlour, "store");
-container.registerFactory("butter", createButter, "creamTopMilk");
 ```
 
 ### Getting beans using dot or bracket notation
@@ -263,7 +240,7 @@ You can use custom getters and setters for bean properties using the `collection
 By default, the container will:
 
 * recognise `Map` objects and use their `get` and `set` methods
-* recognise `Container` objects and use their `get` and `registerValue` methods
+* recognise `Container` objects and use their `get` and `register` (with `value()`) methods
 * otherwise just access object properties normally (which also works for array indexes)
 
 So, as far as the container is concerned, we could have created the `store` bean as a `Map`:
@@ -345,12 +322,6 @@ Here we register:
 container.register("hen", bean("chicken"));
 container.register("milk", factory("creamTopMilk.getMilk"));
 container.register("mixture", factory(bean("mixer.getMixture")));
-```
-
-`registerAlias` is syntax sugar for `register` with `bean`, so we could have used this if we preferred:
-
-```
-container.registerAlias("hen", "chicken");
 ```
 
 ### Bound injection
@@ -667,16 +638,6 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 `container.get(name)`
 * Gets the bean named `name` asynchronously (returns a promise to the bean)
 
-### Syntax sugar for `container.register()`
-
-* `container.registerValue(name, val)`: `container.register(name, value(val))`
-* `container.registerBean(name, val)`: `container.register(name, value(val))`
-* `container.registerPromise(name, pmise)`: `container.register(name, promise(pmise))`
-* `container.registerConstructor(name, Ctor, dep1, ...)`: `container.register(name, constructor(Ctor), dep1, ...)`
-* `container.registerClass(name, Ctor, dep1, ...)`: `container.register(name, constructor(Ctor), dep1, ...)`
-* `container.registerFactory(name, ftory, dep1, ...)`: `container.register(name, factory(ftory), dep1, ...)`
-* `container.registerAlias(alias, name)`: `container.register(alias, bean(name))`
-
 ### Specifiers
 
 `bean(name)`
@@ -744,6 +705,7 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 Major changes:
 
+* `v5`: Remove syntax sugar for `register()` which has lost most of its value.
 * `v4`: Make bean replacement explicit.
 * `v3`: Added registration of beans with dot notation, capable of mutating parent beans.
 * `v2`: Removed misguided `initializeWith()/init()` feature. Factory functions are equally effective and don't couple beans to the container.

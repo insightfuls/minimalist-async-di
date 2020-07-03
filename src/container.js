@@ -68,34 +68,6 @@ exports.Container = class Container {
 		}
 	}
 
-	registerValue(name, value) {
-		this.register(name, new BeanValue(value));
-	}
-
-	registerBean(name, value) {
-		this.register(name, new BeanValue(value));
-	}
-
-	registerPromise(name, promise) {
-		this.register(name, new BeanPromise(promise));
-	}
-
-	registerConstructor(name, Constructor, ...dependencies) {
-		this.register(name, new BeanConstructor(Constructor), ...dependencies);
-	}
-
-	registerClass(name, Constructor, ...dependencies) {
-		this.register(name, new BeanConstructor(Constructor), ...dependencies);
-	}
-
-	registerFactory(name, factory, ...dependencies) {
-		this.register(name, new BeanFactory(factory), ...dependencies);
-	}
-
-	registerAlias(alias, name) {
-		this.register(alias, name);
-	}
-
 	async get(name) {
 		const bean = (await this._resolveBeanNamed(name, new Set()));
 		if (bean.error) throw bean.error;
@@ -433,7 +405,7 @@ function defaultSetter(name, value) {
 	}
 
 	if (this instanceof exports.Container) {
-		return this.registerValue(name, value);
+		return this.register(name, this.value(value));
 	}
 
 	this[name] = value;

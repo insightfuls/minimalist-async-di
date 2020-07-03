@@ -217,53 +217,6 @@ describe('Container', function () {
 
 	});
 
-	describe('registration syntax sugar', function () {
-
-		it('registers pre-created bean with registerValue', async function () {
-			container.registerValue("foo", "bar");
-
-			expect(await container.get("foo")).to.equal("bar");
-		});
-
-		it('registers pre-created bean with registerBean', async function () {
-			container.registerBean("foo", "bar");
-
-			expect(await container.get("foo")).to.equal("bar");
-		});
-
-		it('registers promised bean with registerPromise', async function () {
-			container.registerPromise("foo", Promise.resolve("bar"));
-
-			expect(await container.get("foo")).to.equal("bar");
-		});
-
-		it('registers bean class with registerConstructor', async function () {
-			container.registerConstructor("foo", ContainerTestBean);
-
-			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
-		});
-
-		it('registers bean class with registerClass', async function () {
-			container.registerClass("foo", ContainerTestBean);
-
-			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
-		});
-
-		it('registers factory function with registerFactory', async function () {
-			container.registerFactory("foo", () => new ContainerTestBean());
-
-			expect(await container.get("foo")).to.be.an.instanceOf(ContainerTestBean);
-		});
-
-		it('registers alias with registerAlias', async function () {
-			container.register("foo", value("bar"));
-			container.registerAlias("baz", "foo");
-
-			expect(await container.get("baz")).to.equal("bar");
-		});
-
-	});
-
 	describe('getting beans', function () {
 
 		it('rejects when no bean', async function () {
