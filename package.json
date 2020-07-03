@@ -1,6 +1,6 @@
 {
   "name": "minimalist-async-di",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "Asynchronous IoC/dependency injection container with a minimalist API, but which packs a punch",
   "main": "src/container.js",
   "directories": {
@@ -30,7 +30,6 @@
   "license": "MIT",
   "files": [
     "src",
-    "example.js",
     "LICENSE"
   ],
   "bugs": {
