@@ -19,7 +19,7 @@ exports.Container = class Container {
 
 		if (!(specifier instanceof BeanConfig) || !specifier.specifier) {
 			throw new BeanError("first argument to Container#register must be a bean specifier; " +
-					"use a string, bean(), or collection()");
+					"use a string, bean(), collection(), or replacement()");
 		}
 
 		if (typeof creator !== 'string' &&
@@ -61,18 +61,11 @@ exports.Container = class Container {
 			}
 		});
 
-		if (this._beans.has(specifier.name) || this._pending.has(specifier.name)) {
-			throw new BeanError("cannot replace already-created bean");
+		if (specifier instanceof BeanReplacement) {
+			this._replace(specifier, creator, dependencies);
+		} else {
+			this._register(specifier, creator, dependencies);
 		}
-
-		this._registrations.set(specifier.name, {
-			...specifier,
-			...creator,
-			dependencies,
-			children: []
-		});
-
-		this._maybeRegisterInParentBean(specifier.name);
 	}
 
 	registerValue(name, value) {
@@ -107,6 +100,50 @@ exports.Container = class Container {
 		const bean = (await this._resolveBeanNamed(name, new Set()));
 		if (bean.error) throw bean.error;
 		return bean.bean;
+	}
+
+	_replace(specifier, creator, dependencies) {
+		const replacement = specifier.specifier;
+
+		if (this._beans.has(replacement.name) || this._pending.has(replacement.name)) {
+			throw new BeanError(`cannot replace already-created bean '${replacement.name}'`);
+		}
+
+		if (!this._registrations.has(replacement.name)) {
+			throw new BeanError(`bean '${replacement.name}' to replace does not exist`);
+		}
+
+		if (specifier.retainedName) {
+			const retainedRegistration = this._registrations.get(replacement.name);
+			retainedRegistration.name = specifier.retainedName;
+
+			this._registrations.set(specifier.retainedName, retainedRegistration);
+
+			this._maybeRegisterInParentBean(specifier.retainedName);
+		}
+
+		this._registrations.set(replacement.name, {
+			...replacement,
+			...creator,
+			dependencies,
+			children: []
+		});
+	}
+
+	_register(specifier, creator, dependencies) {
+		if (this._registrations.has(specifier.name) || this._beans.has(specifier.name) ||
+				this._pending.has(specifier.name)) {
+			throw new BeanError(`'${specifier.name}' already registered`);
+		}
+
+		this._registrations.set(specifier.name, {
+			...specifier,
+			...creator,
+			dependencies,
+			children: []
+		});
+
+		this._maybeRegisterInParentBean(specifier.name);
 	}
 
 	_maybeRegisterInParentBean(name) {
@@ -428,6 +465,28 @@ class BeanCollection extends BeanConfig {
 }
 BeanCollection.prototype.specifier = true;
 config.collection = (name, getter, setter) => new BeanCollection(name, getter, setter);
+
+class BeanReplacement extends BeanConfig {
+	constructor(specifier, retainedName) {
+		super();
+
+		if (typeof specifier === 'string') {
+			specifier = new BeanCollection(specifier);
+		}
+
+		if (!(specifier instanceof BeanConfig) || !specifier.specifier ||
+				specifier instanceof BeanReplacement) {
+			throw new BeanError("first argument to replacement() must be a bean specifier; " +
+					"use a string, bean(), or collection()");
+		}
+
+		this.specifier = specifier;
+		this.name = specifier.name;
+		this.retainedName = retainedName;
+	}
+}
+BeanReplacement.prototype.specifier = true;
+config.replacement = (specifier, retainedName) => new BeanReplacement(specifier, retainedName);
 
 /*
  * bean() is a specifier, creator and injector that does nothing.

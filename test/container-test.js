@@ -5,8 +5,8 @@ const expect = require("chai").expect;
 const library = require("../src/container");
 
 const {
-	Container, value, promise, constructor, factory, bean, collection, bound, promiser, seeker,
-	BeanError
+	Container, bean, collection, replacement, value, promise, constructor, factory,
+	bound, promiser, seeker, BeanError
 } = library;
 
 describe('Container', function () {
@@ -140,14 +140,60 @@ describe('Container', function () {
 			}).to.throw(BeanError);
 		});
 
-		it('overrides registered bean', async function () {
+		it('replaces bean', async function () {
 			container.register("foo", value("foo"));
-			container.register("foo", value("bar"));
+			container.register(replacement("foo"), value("bar"));
 
 			expect(await container.get("foo")).to.equal("bar");
 		});
 
-		it('throws overriding created bean', async function () {
+		it('retains replaced bean', async function () {
+			container.register("foo", value("foo"));
+			container.register(replacement("foo", "original"),
+					factory((original) => `${original}bar`),
+					"original");
+
+			expect(await container.get("original")).to.equal("foo");
+			expect(await container.get("foo")).to.equal("foobar");
+		});
+
+		it('throws replacing non-existent bean', async function () {
+			expect(() => {
+				container.register(replacement("foo"), value("bar"));
+			}).to.throw(BeanError);
+		});
+
+		it('throws replacing created bean', async function () {
+			container.register("foo", value("foo"));
+
+			expect(await container.get("foo")).to.equal("foo");
+
+			expect(() => {
+				container.register(replacement("foo"), value("bar"));
+			}).to.throw(BeanError);
+		});
+
+		it('throws replacing pending bean', async function () {
+			container.register("foo", factory(async () => {
+				expect(() => {
+					container.register(replacement("foo"), value("bar"));
+				}).to.throw(BeanError);
+
+				return "foo";
+			}));
+
+			expect(await container.get("foo")).to.equal("foo");
+		});
+
+		it('throws re-registering bean', async function () {
+			container.register("foo", value("foo"));
+
+			expect(() => {
+				container.register("foo", value("bar"));
+			}).to.throw(BeanError);
+		});
+
+		it('throws re-registering created bean', async function () {
 			container.register("foo", value("foo"));
 
 			expect(await container.get("foo")).to.equal("foo");
@@ -157,7 +203,7 @@ describe('Container', function () {
 			}).to.throw(BeanError);
 		});
 
-		it('throws overriding pending bean', async function () {
+		it('throws re-registering pending bean', async function () {
 			container.register("foo", factory(async () => {
 				expect(() => {
 					container.register("foo", value("bar"));
@@ -439,6 +485,15 @@ describe('Container', function () {
 
 	describe('cyclic dependencies', function () {
 
+		it('rejects injecting itself', async function () {
+			container.register("foo", constructor(ContainerTestBean), "foo");
+
+			await container.get("foo").then(
+					() => { throw new Error("promise resolved but expecting rejection"); },
+					(error) => { expect(error).to.be.an.instanceOf(BeanError); }
+			);
+		});
+
 		it('rejects injecting beans with cyclic dependency', async function () {
 			container.register("foo", constructor(ContainerTestBean), "bar");
 			container.register("bar", constructor(ContainerTestBean), "baz");
@@ -540,6 +595,16 @@ describe('Container', function () {
 			const bar = await container.get("bar");
 			expect(bar.args[0]()).to.equal(foo);
 			expect(foo.args[0]()).to.equal(bar);
+		});
+
+		it('rejects cyclic dependency in retained replaced bean', async function () {
+			container.register("foo", constructor(ContainerTestBean), "bar");
+			container.register(replacement("foo", "bar"), value("baz"));
+
+			await container.get("bar").then(
+					() => { throw new Error("promise resolved but expecting rejection"); },
+					(error) => { expect(error).to.be.an.instanceOf(BeanError); }
+			);
 		});
 
 	});
@@ -705,6 +770,25 @@ describe('Container', function () {
 			);
 		});
 
+		it('retains replaced collection', async function () {
+			container.register("foo", value({}));
+			container.register("foo.bar", value("baz"));
+			container.register(replacement("foo", "original"), value("new"));
+
+			expect((await container.get("original")).bar).to.equal("baz");
+			expect(await container.get("foo")).to.equal("new");
+		});
+
+		it('retains replaced bean in a collection', async function () {
+			container.register("foo", value({}));
+			container.register("original", value({}));
+			container.register("foo.bar", value("baz"));
+			container.register(replacement("foo.bar", "original.bar"), value("qux"));
+
+			expect((await container.get("original")).bar).to.equal("baz");
+			expect((await container.get("foo")).bar).to.equal("qux");
+		});
+
 		it("sets into a Map", async function () {
 			container.register("foo", value(new Map()));
 			container.register("foo.bar", value("baz"));
@@ -805,6 +889,16 @@ describe('Container', function () {
 			container.register(asynchronousCollectionSpecfier, value(myCollection));
 
 			expect(await container.get("foo.bar")).to.equal("baz");
+		});
+
+		it('replaces with a custom collection', async function () {
+			container.register("foo", value("bar"));
+			container.register(replacement(asynchronousCollectionSpecfier),
+					value(new AsynchronousCollection()));
+			container.register("foo.bar", value("baz"));
+
+			const myCollection = await container.get("foo");
+			expect(await myCollection.retrieve("bar")).to.equal("baz");
 		});
 
 	});

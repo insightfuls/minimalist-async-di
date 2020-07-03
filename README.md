@@ -33,16 +33,40 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 
 ### Import
 
-Here's everything you might need.
+Here's everything you might need (you are likely to need only about half of it, most of the time).
 
 ```
-const { Container, value, promise, constructor, factory, bean, collection, bound, promiser, seeker } = require("minimalist-async-di");
+const {
+	Container,
+	bean,
+	collection,
+	replacement,
+	value,
+	promise,
+	constructor,
+	factory,
+	bound,
+	promiser,
+	seeker
+} = require("minimalist-async-di");
 ```
 
 If you have been passed a `Container` instance, say `container`, you can instead do:
 
 ```
-const { constructor: Container, value, promise, constructor, factory, bean, collection, bound, promiser, seeker } = container;
+const {
+	constructor: Container,
+	bean,
+	collection,
+	replacement,
+	value,
+	promise,
+	constructor,
+	factory,
+	bound,
+	promiser,
+	seeker
+} = container;
 ```
 
 This avoids problems when two different versions of `minimalist-async-di` are installed and the one you `require` was not used to create the container instance, so they do not interoperate.
@@ -582,14 +606,18 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 ### Replacing registrations
 
-If you register a bean with the same name as an already-registered one, the existing one is replaced without any error. This allows you to override beans with stubs or mocks for testing.
+Sometimes you want to replace already-registered beans, for example to inject stubs or mocks for testing. You can use the `replacement` specifier for this.
 
 Note that it will only work if the bean has not already been created. Also, collections will 'lose' any children registered with dot or bracket notation (only children registered after the new parent registration will be added to the new parent).
 
 Here's an example where we replace the `meringueFactory` with a fake one.
 
 ```
-container.register("meringueFactory", value({ create() { return "fake meringue"; } }));
+container.register(replacement("meringueFactory"), value({
+	create() {
+		return "fake meringue";
+	}
+}));
 ```
 
 ```
@@ -599,7 +627,27 @@ container.get("pudding")
 ```
 
 ```
-mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken created from nothing, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, topped with fake meringue, eaten by Trillian
+mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken created from nothing, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, topped with fake meringue, and jam, eaten by Trillian
+```
+
+You can optionally keep the existing registration with a different name, allowing you to decorate it:
+
+```
+container.register(replacement("meringueFactory", "realMeringueFactory"), factory((realMeringueFactory) => ({
+	async create() {
+		return `fake meringue instead of ${await realMeringueFactory.create()}`;
+	}
+})), "realMeringueFactory");
+```
+
+```
+container.get("pudding")
+.then(pudding => pudding.addToppings().serveTo("Trillian"))
+.then(console.log, console.error)
+```
+
+```
+mixture of butter churned from cream separated from pasteurized cream-top milk, sifted castor sugar, egg laid by chicken created from nothing, milk separated from pasteurized cream-top milk, and sifted self-raising flour, baked in preheated moderate oven, topped with fake meringue instead of meringue made from whipped white of egg laid by chicken created from nothing, and castor sugar, and jam, eaten by Trillian
 ```
 
 ## API
@@ -642,6 +690,11 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 * Properties are set by calling the function `await setter(prop, val)` with `this` set to the parent bean
 * The getters and setters work if they're synchronous or asynchronous
 * If the bean is a `Map`, `Container` or plain object, you probably don't need to use this, as the container supports those kinds of beans natively
+
+`replacement(specifier, retainedName)`
+* Specifier that specifies a bean to replace an already-registered bean
+* The `specifier` will usually just be a bean name, but it is possible to replace a collection
+* The `retainedName` is optional, but if provided, will rename the existing registration to `retainedName`
 
 ### Creators
 
@@ -691,6 +744,7 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 Major changes:
 
+* `v4`: Make bean replacement explicit.
 * `v3`: Added registration of beans with dot notation, capable of mutating parent beans.
 * `v2`: Removed misguided `initializeWith()/init()` feature. Factory functions are equally effective and don't couple beans to the container.
 * `v1`: Initial version.
