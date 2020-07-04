@@ -176,9 +176,7 @@ function createCreateCookingScope(parent) {
  * Fake meringue.
  */
 
-function useFakeMeringue(container) {
-	const { register, replacement, factory } = container;
-
+function useFakeMeringue({ register, replacement, factory }) {
 	register(replacement("meringueFactory", "realMeringueFactory"), factory((realMeringueFactory) => ({
 		async create() {
 			return `fake meringue instead of ${await realMeringueFactory.create()}`;
