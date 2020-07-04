@@ -1,7 +1,9 @@
 "use strict";
 
-const { Container, bean, replacement, value, promise, constructor, factory, bound, promiser, seeker } =
-		require(".");
+const {
+	Container, bean, replacement, value, promise, constructor, factory,
+	bound, promiser, seeker
+} = require(".");
 
 /*
  * Components, which would ordinarily be exported from other modules.

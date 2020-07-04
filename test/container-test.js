@@ -877,6 +877,17 @@ describe('Container', function () {
 			});
 		});
 
+		it(`can destructure instance to register and get`, async function () {
+			const container = new Container();
+
+			const { register, get, value } = container;
+
+			register("foo", value('bar'));
+
+			expect(await get("foo")).to.equal("bar");
+			expect(await container.get("foo")).to.equal("bar");
+		});
+
 	});
 
 });

@@ -10,9 +10,12 @@ exports.Container = class Container {
 		this._registrations = new Map();
 		this._pending = new Map();
 		this._beans = new Map();
+
+		this.register = (...args) => this._validateAndRegister(...args);
+		this.get = (...args) => this._get(...args);
 	}
 
-	register(specifier, creator, ...dependencies) {
+	_validateAndRegister(specifier, creator, ...dependencies) {
 		if (typeof specifier === 'string') {
 			specifier = new BeanCollection(specifier);
 		}
@@ -68,7 +71,7 @@ exports.Container = class Container {
 		}
 	}
 
-	async get(name) {
+	async _get(name) {
 		const bean = (await this._resolveBeanNamed(name, new Set()));
 		if (bean.error) throw bean.error;
 		return bean.bean;

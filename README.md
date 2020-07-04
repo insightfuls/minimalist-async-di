@@ -51,11 +51,13 @@ const {
 } = require("minimalist-async-di");
 ```
 
-If you have been passed a `Container` instance, say `container`, you can instead do:
+If you have been passed a `Container` instance, say `container`, you can instead access everything from it, even its `register` and `get` methods:
 
 ```
 const {
 	constructor: Container,
+	register,
+	get,
 	bean,
 	collection,
 	replacement,
@@ -705,8 +707,8 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 Major changes:
 
-* `v5`: Remove syntax sugar for `register()` which has lost most of its value.
-* `v4`: Make bean replacement explicit.
+* `v5`: Removed syntax sugar for `register()` which had lost most of its value.
+* `v4`: Made bean replacement explicit.
 * `v3`: Added registration of beans with dot notation, capable of mutating parent beans.
 * `v2`: Removed misguided `initializeWith()/init()` feature. Factory functions are equally effective and don't couple beans to the container.
 * `v1`: Initial version.
