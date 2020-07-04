@@ -860,6 +860,7 @@ describe('Container', function () {
 
 		Object.entries({
 			"collection": "specifier",
+			"replacement": "specifier",
 			"bean": "specifier/creator/injector",
 			"value": "creator/injector",
 			"promise": "creator/injector",
@@ -877,7 +878,7 @@ describe('Container', function () {
 			});
 		});
 
-		it(`can destructure instance to register and get`, async function () {
+		it(`can destructure container instance to register and get`, async function () {
 			const container = new Container();
 
 			const { register, get, value } = container;
