@@ -1,7 +1,7 @@
 "use strict";
 
 const {
-	Container, bean, replacement, value, promise, constructor, factory,
+	Container, bean, value, promise, constructor, factory,
 	bound, promiser, seeker
 } = require(".");
 
@@ -168,15 +168,25 @@ function createCreateCookingScope(parent) {
 		child.register("eggForMixture", factory("createEgg"));
 		child.register("meringue", factory("meringueFactory.create"));
 
-		container.register(replacement("meringueFactory", "realMeringueFactory"), factory((realMeringueFactory) => ({
-			async create() {
-				return `fake meringue instead of ${await realMeringueFactory.create()}`;
-			}
-		})), "realMeringueFactory");
-
 		return child;
 	};
 }
+
+/*
+ * Fake meringue.
+ */
+
+function useFakeMeringue(container) {
+	const { register, replacement, factory } = container;
+
+	register(replacement("meringueFactory", "realMeringueFactory"), factory((realMeringueFactory) => ({
+		async create() {
+			return `fake meringue instead of ${await realMeringueFactory.create()}`;
+		}
+	})), "realMeringueFactory");
+}
+
+useFakeMeringue(container);
 
 /*
  * Use it.
