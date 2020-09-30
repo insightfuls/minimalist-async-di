@@ -333,15 +333,15 @@ exports.Container = class Container {
 	}
 
 	async _createBeanGivenDependencies(registration, resolvedDependencies) {
-		if (registration.value) {
-			return { bean: registration.value };
-		}
-
 		if (registration.promise) {
 			return await registration.promise;
 		}
 
 		let fn = registration.Constructor || registration.factory;
+
+		if (!fn) {
+			return { bean: registration.value };
+		}
 
 		if (typeof fn === 'string') {
 			const resolvedFn = resolvedDependencies.pop();

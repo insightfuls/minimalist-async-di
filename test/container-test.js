@@ -40,6 +40,16 @@ describe('Container', function () {
 			expect(await container.get("foo")).to.equal("bar");
 		});
 
+		it('registers falsy pre-created beans', async function () {
+			container.register("foo", value(""));
+			container.register("bar", value(null));
+			container.register("baz", value(undefined));
+
+			expect(await container.get("foo")).to.equal("");
+			expect(await container.get("bar")).to.equal(null);
+			expect(await container.get("baz")).to.equal(undefined);
+		});
+
 		it('registers using bean specifier', async function () {
 			container.register(bean("foo"), value("bar"));
 
