@@ -35,7 +35,7 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 
 Here's everything you might need (you are likely to need only about half of it, most of the time).
 
-```
+```javascript
 const {
 	Container,
 	bean,
@@ -53,7 +53,7 @@ const {
 
 If you have been passed a `Container` instance, say `container`, you can instead access everything from it, even its `register` and `get` methods:
 
-```
+```javascript
 const {
 	constructor: Container,
 	register,
@@ -77,7 +77,7 @@ This avoids problems when two different versions of `minimalist-async-di` are in
 
 Creating a container is super simple.
 
-```
+```javascript
 const container = new Container();
 ```
 
@@ -85,7 +85,7 @@ const container = new Container();
 
 Getting beans is always asynchronous (returns a Promise). Suppose we have registered a bean called "pudding". We can retrieve it and serve it as follows.
 
-```
+```javascript
 container.get("pudding")
 .then(pudding => pudding.serveTo("Ben"));
 ```
@@ -100,7 +100,7 @@ Sometimes you just want to put an existing value into the container as a bean. U
 
 Here we have a local store, which might be exported from some module, and contains some of the ingredients we need.
 
-```
+```javascript
 const localStore = {
 	flour: "self-raising flour"
 };
@@ -108,7 +108,7 @@ const localStore = {
 
 We just register it as is, in a bean named "store".
 
-```
+```javascript
 container.register("store", value(localStore));
 ```
 
@@ -118,7 +118,7 @@ You can also register promises to beans using the `register` method with the `pr
 
 We can use this to promise pasteurized cream-top milk. Because `pasteurize()` is an `async` function, it returns a promise.
 
-```
+```javascript
 class CreamTopMilk {
 	constructor() {
 		this.state = "cream-top milk";
@@ -145,7 +145,7 @@ class CreamTopMilk {
 }
 ```
 
-```
+```javascript
 container.register("creamTopMilk", promise((new CreamTopMilk()).pasteurize()));
 ```
 
@@ -155,7 +155,7 @@ You can register constructor functions (or ES6 classes) using the `register` met
 
 Here is a `Mixer` class which might be exported from some module; it requires various ingredients to be supplied to its constructor:
 
-```
+```javascript
 class Mixer {
 	constructor(butter, sugar, egg, milk, flour) {
 		Object.assign(this, { butter, sugar, egg, milk, flour });
@@ -168,7 +168,7 @@ class Mixer {
 
 Here we register a bean named "mixer", which is created using the `Mixer` constructor, and has a number of other named beans as dependencies. The dependencies will be registered later (which is fine to do, even in real code).
 
-```
+```javascript
 container.register("mixer", constructor(Mixer), "butter", "sugar", "eggForMixture", "milk", "flour");
 ```
 
@@ -178,7 +178,7 @@ Factory functions, which can be either synchronous or asynchronous (returning a 
 
 Here is a synchronous one:
 
-```
+```javascript
 function createFlour(store) {
 	return sift(store.flour);
 }
@@ -188,20 +188,20 @@ function sift(ingredient) {
 }
 ```
 
-```
+```javascript
 container.register("flour", factory(createFlour), "store");
 ```
 
 And an asynchronous one:
 
-```
+```javascript
 function createButter(creamTopMilk) {
 	return creamTopMilk.getCream()
 	.then(cream => `butter churned from ${cream}`);
 }
 ```
 
-```
+```javascript
 container.register("butter", factory(createButter), "creamTopMilk");
 ```
 
@@ -211,7 +211,7 @@ You can get properties of beans, or specify them as dependencies, using dot or b
 
 This registers a `sugar` bean which is created using the `sift` function (defined [earlier](#registering-factory-functions)) as a factory. It receives a dependency which is the `sugar` property from the `store` bean.
 
-```
+```javascript
 container.register("sugar", factory(sift), "store[sugar]");
 ```
 
@@ -227,11 +227,11 @@ Note that the order of registration matters for this to work. **The parent bean 
 
 Here we stock the `store` with `sugar`.
 
-```
+```javascript
 const castorSugar = "castor sugar";
 ```
 
-```
+```javascript
 container.register("store[sugar]", value(castorSugar));
 ```
 
@@ -247,34 +247,34 @@ By default, the container will:
 
 So, as far as the container is concerned, we could have created the `store` bean as a `Map`:
 
-```
+```javascript
 const localStore = new Map();
 localStore.set("flour", "self-raising flour");
 ```
 
 Or as a `Container`:
 
-```
+```javascript
 const localStore = new Container();
 localStore.register("flour", value("self-raising flour"));
 ```
 
 For both of these (and the plain object used originally), we just need to do:
 
-```
+```javascript
 container.register("store", value(localStore));
 ```
 
 Or we can use either of the `bean` or `collection` specifiers if we prefer:
 
-```
+```javascript
 container.register(bean("store"), value(localStore));
 container.register(collection("store"), value(localStore));
 ```
 
 It is **not recommended**, however, if we do need something customised, we can do it. Just use `collection`, providing the bean name, getter, and setter. The getters and setters can be synchronous or asynchronous, and will be called with `this` set to the parent bean.
 
-```
+```javascript
 class Store {
 	constructor() {
 		this.items = {};
@@ -291,17 +291,17 @@ const localStore = new Store();
 localStore.stock("flour", "self-raising flour");
 ```
 
-```
+```javascript
 container.register(collection("store", Store.prototype.purchase, Store.prototype.stock), value(localStore));
 ```
 
 In *all* of these cases, getting and registering properties of the store are unchanged.
 
-```
+```javascript
 container.register("store[sugar]", value(castorSugar));
 ```
 
-```
+```javascript
 container.register("sugar", factory(sift), "store[sugar]");
 ```
 
@@ -320,7 +320,7 @@ Here we register:
  * a `milk` bean, which is created using the `getMilk` method on the `creamTopMilk` bean,
  * a `mixture` bean which is created using the `getMixture` method on the `mixer` bean.
 
-```
+```javascript
 container.register("hen", bean("chicken"));
 container.register("milk", factory("creamTopMilk.getMilk"));
 container.register("mixture", factory(bean("mixer.getMixture")));
@@ -334,7 +334,7 @@ However, that isn't always what you want. Sometimes, just like when you use a pr
 
 This `JamFactory` can be used to demonstrate this:
 
-```
+```javascript
 class JamFactory {
 	constructor() {
 		this.jam = "jam";
@@ -345,13 +345,13 @@ class JamFactory {
 }
 ```
 
-```
+```javascript
 container.register("jamFactory", constructor(JamFactory));
 ```
 
 Here's a `Toast` class which uses it.
 
-```
+```javascript
 class Toast {
 	constructor(getJam) {
 		this.getJam = getJam;
@@ -362,7 +362,7 @@ class Toast {
 }
 ```
 
-```
+```javascript
 container.register("toast", constructor(Toast), bound("jamFactory.getJam"));
 ```
 
@@ -374,7 +374,7 @@ Sometimes you don't want to inject another bean, but just want to explicitly inj
 
 We inject the type of oven this way. The string `"moderate"` is passed to the constructor, not a bean named `moderate`.
 
-```
+```javascript
 class Oven {
 	constructor(type) {
 		this.type = type;
@@ -385,7 +385,7 @@ class Oven {
 }
 ```
 
-```
+```javascript
 container.register("oven", constructor(Oven), value("moderate"));
 ```
 
@@ -401,7 +401,7 @@ However, it is possible to provide a promise for the dependency using `promise`,
 
 This `Pudding` class uses both kinds of asynchronous injection. It receives the mixture asynchronously so that the oven can be preheated while the mixture is being prepared, and it only gets meringue if the user actually wants it (calls the `addToppings()` method).
 
-```
+```javascript
 class Pudding {
 	constructor(oven, promisedMixture, getMeringue, getJam) {
 		this.product = Promise.all([promisedMixture, oven.preheat()]).then(([mixture, oven]) => {
@@ -427,7 +427,7 @@ class Pudding {
 }
 ```
 
-```
+```javascript
 container.register("pudding", constructor(Pudding), bean("oven"), promise("mixture"), promiser("meringue"), bound("jamFactory.getJam"));
 ```
 
@@ -441,7 +441,7 @@ Using seeker injection is **not recommended**, in fact **highly discouraged**, h
 
 Here is a chicken and egg example that explicitly handles the `undefined` case:
 
-```
+```javascript
 class Chicken {
 	constructor(maybeGetCreateEgg) {
 		this.origin = maybeGetCreateEgg() ? "an egg" : "nothing";
@@ -452,7 +452,7 @@ class Chicken {
 }
 ```
 
-```
+```javascript
 container.register("chicken", constructor(Chicken), seeker("createEgg"));
 ```
 
@@ -462,7 +462,7 @@ All beans in the container are singletons, meaning they are created the first ti
 
 So if you get the pudding a second time, you will get the one you prepared earlier, and be told that it's already eaten.
 
-```
+```javascript
 container.get("pudding")
 .then(pudding => pudding.addToppings().serveTo("Trillian"))
 .then(console.log, console.error)
@@ -486,7 +486,7 @@ If you need to create new instances repeatedly, use a bean which is itself a fac
 
 This could be a factory function like this `createEgg` function. Note how a "meta-factory" is used to create the factory.
 
-```
+```javascript
 function createCreateEgg(hen) {
 	return async function createEgg() {
 		return hen.lay();
@@ -494,13 +494,13 @@ function createCreateEgg(hen) {
 }
 ```
 
-```
+```javascript
 container.register("createEgg", factory(createCreateEgg), "hen");
 ```
 
 Alternatively, it could be a class-style factory, like this `MeringueFactory`.
 
-```
+```javascript
 class MeringueFactory {
 	constructor(createEgg, sugar) {
 		this.createEgg = createEgg;
@@ -512,7 +512,7 @@ class MeringueFactory {
 }
 ```
 
-```
+```javascript
 container.register("meringueFactory", constructor(MeringueFactory), "createEgg", "store[sugar]");
 ```
 
@@ -520,7 +520,7 @@ Note how the `MeringueFactory` itself has a factory injected (`createEgg`) to as
 
 You can also use factory beans to create other beans:
 
-```
+```javascript
 container.register("eggForMixture", factory("createEgg"));
 container.register("meringue", factory("meringueFactory.create"));
 ```
@@ -531,7 +531,7 @@ If you need to repeatedly create scopes with managed beans, use a bean which is 
 
 Suppose the `store`, `chicken`, `createEgg` and `meringueFactory` beans are "global", registered in the parent container. You could register a factory which creates child containers and registers beans like below. Notice how the `store`, `meringueFactory` and `jamFactory` beans are aliases for beans on the parent container (which is registered as a `parent` bean); these will be created on demand. Contrastingly, we get the parent's `createEgg` bean when we instantiate the scope so it is inserted pre-created into the child container.
 
-```
+```javascript
 container.register("createCookingScope", factory(createCreateCookingScope), value(container));
 
 function createCreateCookingScope(parent) {
@@ -565,7 +565,7 @@ function createCreateCookingScope(parent) {
 
 You can create and use the scope like this:
 
-```
+```javascript
 container.get("createCookingScope")
 .then(create => create())
 .then(scope => scope.get("pudding"))
@@ -585,7 +585,7 @@ Note that it will only work if the bean has not already been created. Also, coll
 
 Here's an example where we replace the `meringueFactory` with a fake one.
 
-```
+```javascript
 container.register(replacement("meringueFactory"), value({
 	create() {
 		return "fake meringue";
@@ -593,7 +593,7 @@ container.register(replacement("meringueFactory"), value({
 }));
 ```
 
-```
+```javascript
 container.get("pudding")
 .then(pudding => pudding.addToppings().serveTo("Trillian"))
 .then(console.log, console.error)
@@ -605,7 +605,7 @@ mixture of butter churned from cream separated from pasteurized cream-top milk, 
 
 You can optionally keep the existing registration with a different name, allowing you to decorate it:
 
-```
+```javascript
 container.register(replacement("meringueFactory", "realMeringueFactory"), factory((realMeringueFactory) => ({
 	async create() {
 		return `fake meringue instead of ${await realMeringueFactory.create()}`;
@@ -613,7 +613,7 @@ container.register(replacement("meringueFactory", "realMeringueFactory"), factor
 })), "realMeringueFactory");
 ```
 
-```
+```javascript
 container.get("pudding")
 .then(pudding => pudding.addToppings().serveTo("Trillian"))
 .then(console.log, console.error)
