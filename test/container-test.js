@@ -869,6 +869,7 @@ describe('Container', function () {
 	describe("references on instances", function () {
 
 		Object.entries({
+			"Container": "constructor",
 			"collection": "specifier",
 			"replacement": "specifier",
 			"bean": "specifier/creator/injector",

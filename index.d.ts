@@ -28,6 +28,7 @@ declare namespace minimalistAsyncDI {
 			creator: Creator,
 			...dependencies: Dependency[]
 		) => undefined;
+		Container = Container;
 		bean = bean;
 		collection = collection;
 		replacement = replacement;

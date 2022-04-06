@@ -55,7 +55,7 @@ If you have been passed a `Container` instance, say `container`, you can instead
 
 ```javascript
 const {
-	constructor: Container,
+	Container,
 	register,
 	get,
 	bean,
