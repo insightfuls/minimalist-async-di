@@ -16,7 +16,7 @@ Asynchronous IoC/dependency injection container with a minimalist API, but which
 	* [Using beans to create other beans](#using-beans-to-create-other-beans)
 	* [Bound injection](#bound-injection)
 	* [Explicit injection](#explicit-injection)
-	* [Asynchronous injection](#asynchronous-injection)
+	* [Asynchronous injection (Lazy evaluation)](#asynchronous-injection)
 	* [Seeker injection](#seeker-injection)
 	* [All beans are singletons](#all-beans-are-singletons)
 	* [Repeated creation](#repeated-creation)
@@ -389,7 +389,7 @@ class Oven {
 container.register("oven", constructor(Oven), value("moderate"));
 ```
 
-### Asynchronous injection
+### Asynchronous injection (Lazy Evaluation)
 
 Usually constructors and factories receive their dependencies synchronously.
 
@@ -397,7 +397,7 @@ However, it is possible to provide a promise for the dependency using `promise`,
 
 * It gives you a tool to use to avoid cyclic dependencies (which, as much as we try to avoid them, sometimes do seem like the right solution). As long as there is an asynchronous injection somewhere in the cycle, and the promise doesn't block the creation of the bean it is injected into (but can settle later), the beans will be able to be created.
 * Since the dependency is received asynchronously, you can begin other processing while waiting for it to arrive.
-* For `promiser`, you only call the factory if you need to use the dependency. If you don't need it, it is never retrieved (perhaps never even created) so it can be used for dependencies which might not be needed in practice.
+* For `promiser`, you only call the factory if you need to use the dependency (lazy evaluation). If you don't need it, it is never retrieved (perhaps never even created) so it can be used for dependencies which might not be needed in practice.
 
 This `Pudding` class uses both kinds of asynchronous injection. It receives the mixture asynchronously so that the oven can be preheated while the mixture is being prepared, and it only gets meringue if the user actually wants it (calls the `addToppings()` method).
 
